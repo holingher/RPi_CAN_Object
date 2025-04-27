@@ -22,10 +22,10 @@ pygame.display.set_caption('RPi_Object_radar')
 
 # colors
 gray = (100, 100, 100)
-green = (0, 0, 0)
+yellow = (255, 232, 0)
 red = (200, 0, 0)
 white = (255, 255, 255)
-yellow = (255, 232, 0)
+black = (0, 0, 0)
 
 # road and marker sizes
 road_width = 300
@@ -59,7 +59,7 @@ fps = 120
 # game settings
 gameover = False
 speed = 2
-score = 0
+objects = 0
 
 class Vehicle(pygame.sprite.Sprite):
     
@@ -67,8 +67,8 @@ class Vehicle(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         
         # define the size of the rectangle
-        self.width = 40
-        self.height = 80
+        self.width = 20
+        self.height = 40
         self.image = pygame.Surface((self.width, self.height))
         self.image.fill(color)
         
@@ -99,7 +99,8 @@ crash_rect = pygame.Rect(0, 0, 40, 40)  # Placeholder rectangle for crash
 # Define ray tracing parameters
 ray_count = 100  # Number of rays in the field of view
 ray_length = 600  # Length of each ray
-ray_color = (255, 0, 0, 128)  # Red color for the rays
+ray_color_hit = (0, 255, 0, 64)  # Green color for the rays that hit a vehicle
+ray_color_no_hit = (255, 0, 0, 64)  # Red color for the rays
 fov_angle = 90  # Field of view angle in degrees
 
 # Function to calculate rays based on FOV
@@ -117,6 +118,9 @@ def calculate_rays(player):
     return rays
   
 def draw_rays():
+    # Create a transparent surface for drawing rays
+    ray_surface = pygame.Surface(screen.get_size(), pygame.SRCALPHA)  # Use SRCALPHA for transparency
+
     # Calculate and draw rays for the player's field of view
     rays = calculate_rays(player)
     # Check for collisions along each ray
@@ -131,26 +135,28 @@ def draw_rays():
         # Draw the ray
         if hit_point:
             # Draw the ray only up to the collision point
-            pygame.draw.line(screen, (0, 255, 0, 128), ray_start, hit_point[0], 2)  # Green ray for collision
+            pygame.draw.line(ray_surface, ray_color_hit, ray_start, hit_point[0], 2)  # Green ray for collision
         else:
             # Draw the full ray if no collision
-            pygame.draw.line(screen, ray_color, ray_start, ray_end, 2)
+            pygame.draw.line(ray_surface, ray_color_no_hit, ray_start, ray_end, 2)
+    # Blit the transparent surface onto the main screen
+    screen.blit(ray_surface, (0, 0)) 
             
 def add_vehicle():
     # add a vehicle
-    if len(vehicle_group) < 3:
+    if len(vehicle_group) < 30:
         
         # ensure there's enough gap between vehicles
         add_vehicle = True
         for vehicle in vehicle_group:
-            if vehicle.rect.top < vehicle.rect.height * 1.5:
+            if vehicle.rect.top < vehicle.rect.height:
                 add_vehicle = False
                 
         if add_vehicle:
             # select a random horizontal position within the road boundaries
             x_position = random.randint(int(lane_width), int(lane_width + road_width - 40))  # Ensure the vehicle stays within the road
             # select a random vertical position above the screen
-            y_position = random.randint(-200, -50)  # Random position above the screen
+            y_position = random.randint(-300, -50)  # Random position above the screen
             # select a random vehicle image
             color = [random.randint(0, 255) for _ in range(3)]  # random color
             
@@ -161,7 +167,7 @@ def add_vehicle():
             vehicle_group.add(vehicle)
 
 def draw_vehicle():
-    global speed, score
+    global speed, objects
     # draw the vehicles and their labels
     for vehicle in vehicle_group:
         # draw the vehicle rectangle
@@ -181,16 +187,63 @@ def draw_vehicle():
         if vehicle.rect.top >= height:
             vehicle.kill()
             
-            # add to score
-            score += 1
+            # add to objects
+            #objects += 1
             
             # speed up the game after passing 5 vehicles
-            if score > 0 and score % 5 == 0:
-                speed += 1
+            #if objects > 0 and objects % 5 == 0:
+            #    speed += 1
     
     # draw the vehicles
     vehicle_group.draw(screen)
     
+def draw_3d_vehicle(vehicle):
+    # Calculate the scale factor based on the vehicle's vertical position
+    distance_factor = max(0.1, 1 - (vehicle.rect.centery / height))  # Closer objects are larger
+    scaled_width = int(vehicle.width * distance_factor)
+    scaled_height = int(vehicle.height * distance_factor)
+
+    # Scale the vehicle's image
+    scaled_image = pygame.transform.scale(vehicle.image, (scaled_width, scaled_height))
+
+    # Adjust the position to keep the vehicle centered
+    scaled_rect = scaled_image.get_rect(center=vehicle.rect.center)
+
+    # Draw the scaled vehicle
+    screen.blit(scaled_image, scaled_rect)
+
+def draw_3d_road():
+    road_top_width = road_width * 0.5  # Narrower at the top
+    road_bottom_width = road_width  # Wider at the bottom
+
+    # Define the road's trapezoid points
+    road_points = [
+        (width / 2 - road_top_width / 2, 0),  # Top-left
+        (width / 2 + road_top_width / 2, 0),  # Top-right
+        (width / 2 + road_bottom_width / 2, height),  # Bottom-right
+        (width / 2 - road_bottom_width / 2, height),  # Bottom-left
+    ]
+
+    # Draw the road
+    pygame.draw.polygon(screen, gray, road_points)
+
+    # Draw lane markers with perspective
+    for i in range(1, NUMBER_OF_LANES):
+        lane_x_top = width / 2 - road_top_width / 2 + i * (road_top_width / NUMBER_OF_LANES)
+        lane_x_bottom = width / 2 - road_bottom_width / 2 + i * (road_bottom_width / NUMBER_OF_LANES)
+        pygame.draw.line(screen, white, (lane_x_top, 0), (lane_x_bottom, height), 2)
+
+def draw_3d_rays():
+    rays = calculate_rays(player)
+    for ray_start, ray_end in rays:
+        # Scale the ray's endpoint based on its distance
+        distance_factor = max(0.1, 1 - (ray_end[1] / height))
+        scaled_end_x = ray_start[0] + (ray_end[0] - ray_start[0]) * distance_factor
+        scaled_end_y = ray_start[1] + (ray_end[1] - ray_start[1]) * distance_factor
+
+        # Draw the ray
+        pygame.draw.line(screen, ray_color_no_hit, ray_start, (scaled_end_x, scaled_end_y), 2)
+        
 def draw_own():
     # draw the player's car
     player_group.draw(screen)
@@ -200,30 +253,42 @@ def draw_own():
     
     # render the label above the rectangle
     font = pygame.font.Font(pygame.font.get_default_font(), 14)
-    text = font.render(player.label, True, (255, 255, 255))  # white text
+    text = font.render(player.label, True, white)  # white text
     text_rect = text.get_rect(center=(player.rect.centerx, player.rect.top - 10))  # Position above the rectangle
     screen.blit(text, text_rect)
     
 def draw_environment():
     global lane_marker_move_y 
     # draw the grass
-    screen.fill(green)
+    screen.fill(black)
     
     # draw the road
-    pygame.draw.rect(screen, gray, road)
+    #pygame.draw.rect(screen, black, road)
     
     # draw the edge markers
-    pygame.draw.rect(screen, yellow, left_edge_marker)
-    pygame.draw.rect(screen, yellow, right_edge_marker)
+    #pygame.draw.rect(screen, yellow, left_edge_marker)
+    #pygame.draw.rect(screen, yellow, right_edge_marker)
 
     # draw the lane markers
-    lane_marker_move_y += speed * 2
-    if lane_marker_move_y >= marker_height * 2:
-        lane_marker_move_y = 0
-    for y in range(marker_height * -2, height, marker_height * 2):
-        pygame.draw.rect(screen, white, (left_lane + 45, y + lane_marker_move_y, marker_width, marker_height))
-        pygame.draw.rect(screen, white, (center_lane + 45, y + lane_marker_move_y, marker_width, marker_height))
-        
+    #lane_marker_move_y += speed * 2
+    #if lane_marker_move_y >= marker_height * 2:
+    #    lane_marker_move_y = 0
+    #for y in range(marker_height * -2, height, marker_height * 2):
+    #    pygame.draw.rect(screen, white, (left_lane + 45, y + lane_marker_move_y, marker_width, marker_height))
+    #    pygame.draw.rect(screen, white, (center_lane + 45, y + lane_marker_move_y, marker_width, marker_height))
+
+def draw_shadow(vehicle):
+    shadow_color = (50, 50, 50, 128)  # Semi-transparent gray
+    shadow_width = vehicle.width
+    shadow_height = 10  # Flat shadow
+    shadow_rect = pygame.Rect(
+        vehicle.rect.centerx - shadow_width // 2,
+        vehicle.rect.bottom,
+        shadow_width,
+        shadow_height,
+    )
+    pygame.draw.ellipse(screen, shadow_color, shadow_rect)
+    
 # game loop
 running = True
 while running:
@@ -233,7 +298,7 @@ while running:
     for event in pygame.event.get():
         if event.type == QUIT:
             running = False
-            
+        '''
         # move the player's car using the left/right arrow keys
         if event.type == KEYDOWN:
             
@@ -256,25 +321,32 @@ while running:
                     elif event.key == K_RIGHT:
                         player.rect.right = vehicle.rect.left
                         crash_rect.center = [player.rect.right, (player.rect.center[1] + vehicle.rect.center[1]) / 2]
-
+        '''
     draw_environment()
+    
+    #draw_3d_road()
+    # Draw vehicles with 3D scaling
+    #for vehicle in vehicle_group:
+    #    draw_3d_vehicle(vehicle)
+    #    draw_shadow(vehicle)  # Draw shadow for each vehicle
+        
     draw_own()
     add_vehicle()
     draw_vehicle()
     draw_rays()
     
-    # display the score
+    # display the objects count
     font = pygame.font.Font(pygame.font.get_default_font(), 16)
-    text = font.render('Score: ' + str(score), True, white)
+    text = font.render('Nb of objects: ' + str(len(vehicle_group)), True, white)
     text_rect = text.get_rect()
-    text_rect.center = (50, 50)
+    text_rect.center = (100, screen.get_height() - 50)
     screen.blit(text, text_rect)
     
     # check if there's a head on collision
     if pygame.sprite.spritecollide(player, vehicle_group, True):
         gameover = True
         crash_rect.center = [player.rect.center[0], player.rect.top]
-            
+    '''
     # display game over
     if gameover:
         screen.blit(screen, crash_rect)
@@ -286,9 +358,9 @@ while running:
         text_rect = text.get_rect()
         text_rect.center = (width / 2, 100)
         screen.blit(text, text_rect)
-            
+    '''  
     pygame.display.update()
-
+    '''
     # wait for user's input to play again or exit
     while gameover:
         
@@ -306,12 +378,12 @@ while running:
                     # reset the game
                     gameover = False
                     speed = 2
-                    score = 0
+                    objects = 0
                     vehicle_group.empty()
                     player.rect.center = [player_x, player_y]
                 elif event.key == K_n:
                     # exit the loops
                     gameover = False
                     running = False
-
+    '''
 pygame.quit()
