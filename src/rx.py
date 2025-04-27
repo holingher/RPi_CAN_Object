@@ -6,9 +6,60 @@ import e2e
 import platform
 import time
 from dataclasses import dataclass
+from can import Message
+
+# Declare message_radar as a CAN message
+message_radar = Message(
+    arbitration_id=0x000,  # Default arbitration ID
+    data=[],               # Empty data payload
+    dlc=0,                 # Data length code
+    is_extended_id=False,  # Standard ID (not extended)
+    is_fd=True             # CAN FD message
+)
+
+# Declare message_car as a CAN message
+message_car = Message(
+    arbitration_id=0x000,  # Default arbitration ID
+    data=[],               # Empty data payload
+    dlc=0,                 # Data length code
+    is_extended_id=False,  # Standard ID (not extended)
+    is_fd=True             # CAN FD message
+)
 
 os_name = 'Windows'
 # For a list of PIDs visit https://en.wikipedia.org/wiki/OBD-II_PIDs
+####################################################################
+#https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
+VEHICLE_SPEED = 0x164 # E,F - Vehicle Speed
+WHEEL_SPEED = 0x309 # C - Left wheel speed (km/h); D - Right wheel speed (km/h)
+@dataclass
+class egomotion_t:
+    Speed: float
+    Left_wheel_speed: float
+    Right_wheel_speed: float
+    YawRate: int
+    LatAcc: int
+    LongAcc: int
+EgoMotion_data = egomotion_t(0.0, 0.0, 0.0, 0, 0, 0)
+####################################################################
+@dataclass
+class object_list_for_draw_t:
+    Class: int
+    DataConf: int
+    Qly: int
+    
+@dataclass
+class VIEW_t:
+    MsgCntr: int
+    ScanID: int
+    object_list_for_draw: list[object_list_for_draw_t]
+
+ObjList_VIEW = VIEW_t(
+    MsgCntr=0,
+    ScanID=0,
+    object_list_for_draw=[object_list_for_draw_t(0, 0, 0) for _ in range(30)]  # Array of 30 elements
+)
+####################################################################    
 @dataclass
 class object_prop_t:
     Class: str
@@ -22,7 +73,7 @@ class objects_prop_t:
 
 @dataclass
 class ObjectList_t:
-    arbitration_ID: int
+    arbitration_id: int
     e2e_DataId: int
     msg_name: str
     MsgCntr: str
@@ -130,45 +181,79 @@ try:
     print('Loading DBC....')
     db = cantools.db.load_file("database/volvo_MRR.dbc")
     if(os_name != 'Windows'):
-        print('Bring up CAN0....')
+        print('Bring up CAN....')
         os.system("sudo ifconfig can0 down")
+        os.system("sudo ifconfig can1 down")
         time.sleep(0.1)
         os.system("sudo ip link set can0 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
         time.sleep(0.1)
-        can_bus = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
+        os.system("sudo ip link set can1 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
+        time.sleep(0.1)
+        can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
+        can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
     elif(os_name == 'Windows'):
-        print('Bring up CAN0....')
-        can_bus = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
+        print('Bring up CAN....')
+        can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
+        can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
     time.sleep(0.1)
-    print('Ready')
 except OSError as e:
     print(f'Cannot find CAN board: {e}')
     os._exit(0)
+print('Ready')
 
+reference_ID = list_of_Object_attr[0].arbitration_id
 # Main loop
 try:
     while True:
         #treat Object list 
         try:
-            message = can_bus.recv(timeout=0.1)
+            if(os_name != 'Windows'):
+                message_radar = can_bus_radar.recv(timeout=0.1)
             # treat only specific range of messages
-            if message.arbitration_id >= list_of_Object_attr[0].arbitration_ID and message.arbitration_id < list_of_Object_attr[-1].arbitration_ID:
+            if message_radar.arbitration_id >= list_of_Object_attr[0].arbitration_id and message_radar.arbitration_id < list_of_Object_attr[-1].arbitration_id:
                 for entry in list_of_Object_attr:
-                    if(entry.arbitration_ID == message.arbitration_id):
-                        if e2e.p05.e2e_p05_check(message.data, message.dlc, data_id=entry.e2e_DataId) is True:
-                            decoded_message = db.get_message_by_frame_id(message.arbitration_id).get_signal_by_name(entry.ScanID)
+                    if(entry.arbitration_id == message_radar.arbitration_id):
+                        if e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_DataId) is True:
+                            #decoded_message = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.ScanID)
+                            ObjList_VIEW.MsgCntr = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.MsgCntr)
+                            ObjList_VIEW.ScanID = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.ScanID)
                             
-                            print('arbitration_id:', message.arbitration_id)
-                            print('Decoded:', decoded_message)
-                            print('\n\rNo bus!!')
-        except:
-            print('\n\rNo bus!!')
+                            index_entry = entry.arbitration_id - reference_ID
+                            ObjList_VIEW.object_list_for_draw[index_entry].Class = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.first_obj_prop.Class)
+                            ObjList_VIEW.object_list_for_draw[index_entry].DataConf = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.first_obj_prop.DataConf)
+                            ObjList_VIEW.object_list_for_draw[index_entry].Qly = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.first_obj_prop.Qly)
+                            ObjList_VIEW.object_list_for_draw[index_entry + 1].Class = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.second_obj_prop.Class)
+                            ObjList_VIEW.object_list_for_draw[index_entry + 1].DataConf = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.second_obj_prop.DataConf)
+                            ObjList_VIEW.object_list_for_draw[index_entry + 1].Qly = db.get_message_by_frame_id(message_radar.arbitration_id).get_signal_by_name(entry.msg_obj_prop.second_obj_prop.Qly)
+                            print('arbitration_id:', message_radar.arbitration_id)
+                            #print('Decoded:', decoded_message)
+        except OSError as e:
+            print(f'\n\rNo bus from radar!!: {e}')
             os._exit(0)
-
+            
+        try:
+            if(os_name != 'Windows'):
+                message_car = can_bus_car.recv(timeout=0.1)
+            if message_car.arbitration_id == VEHICLE_SPEED:
+                EgoMotion_data.Speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
+            
+            if message_car.arbitration_id == WHEEL_SPEED:
+                EgoMotion_data.Left_wheel_speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
+                EgoMotion_data.Right_wheel_speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
+                #EgoMotion_data.YawRate = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrYawRate')
+                #EgoMotion_data.LatAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLatAcc')
+                #EgoMotion_data.LongAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLongAcc')
+                print('arbitration_id:', message_car.arbitration_id)
+                print('Decoded:', message_car.data)
+        except OSError as e:
+            print(f'\n\rNo bus from car!!: {e}')
+            os._exit(0)
+            
 except KeyboardInterrupt:
     #Catch keyboard interrupt
     if(os_name != 'Windows'):
         print('\n\rClosing interface...')
         os.system("sudo ip link set can0 down")
+        os.system("sudo ip link set can1 down")
     print('\n\rKeyboard interrtupt')
     os._exit(0)

@@ -14,9 +14,9 @@ class VehicleType(Enum):
 pygame.init()
 
 # create the window
-width = 1024
-height = 600
-screen_size = (width, height)
+surface_width = 1024
+surface_height = 600
+screen_size = (surface_width, surface_height)
 screen = pygame.display.set_mode(screen_size, pygame.SRCALPHA)
 pygame.display.set_caption('RPi_Object_radar')
 
@@ -25,32 +25,30 @@ gray = (100, 100, 100)
 yellow = (255, 232, 0)
 red = (200, 0, 0)
 white = (255, 255, 255)
+green = (0, 255, 0)
 black = (0, 0, 0)
 
 # road and marker sizes
-road_width = 300
+road_width = 510
 marker_width = 10
 marker_height = 50
 
 # lane coordinates
-NUMBER_OF_LANES = 3
-lane_width = road_width / NUMBER_OF_LANES
-left_lane = lane_width + marker_height
-center_lane = lane_width * 2 + marker_height
-right_lane = lane_width * 3 + marker_height
-lanes = [left_lane, center_lane, right_lane]
+lane_width = road_width
+#left_lane = lane_width
+#right_lane = road_width
 
 # road and edge markers
-road = (lane_width, 0, road_width, height)
-left_edge_marker = (lane_width, 0, marker_width, height)
-right_edge_marker = (road_width + lane_width, 0, marker_width, height)
+road = (road_width, 0, road_width, screen.get_height())
+#left_edge_marker = (lane_width, 0, marker_width, screen.get_height())
+#right_edge_marker = (road_width, 0, marker_width, screen.get_height())
 
 # for animating movement of the lane markers
 lane_marker_move_y = 0
 
 # player's starting coordinates
-player_x = center_lane
-player_y = height - marker_height
+player_x = round(surface_width / 2 / 10) * 10#road_width + marker_height 
+player_y = screen.get_height() - marker_height
 
 # frame settings
 clock = pygame.time.Clock()
@@ -60,9 +58,9 @@ fps = 120
 gameover = False
 speed = 2
 objects = 0
+running = True
 
 class Vehicle(pygame.sprite.Sprite):
-    
     def __init__(self, color, x, y, label=''):
         pygame.sprite.Sprite.__init__(self)
         
@@ -79,7 +77,6 @@ class Vehicle(pygame.sprite.Sprite):
         self.label = label
         
 class PlayerVehicle(Vehicle):
-    
     def __init__(self, x, y):
         color = (0, 0, 255)  # blue color for the player's car
         super().__init__(color, x, y, label="Own")
@@ -106,13 +103,30 @@ fov_angle = 90  # Field of view angle in degrees
 # Function to calculate rays based on FOV
 def calculate_rays(player):
     rays = []
-    start_angle = fov_angle / 2  # Start angle relative to the player's forward direction
+    start_angle = -fov_angle*1.5  # Start angle relative to the player's forward direction
     angle_step = fov_angle / (ray_count - 1)  # Angle between each ray
 
     for i in range(ray_count):
         angle = math.radians(start_angle + i * angle_step)
+        # Calculate the maximum ray length based on the screen edges
+        if math.cos(angle) > 0:  # Ray pointing right
+            max_x = surface_width - player.rect.centerx
+        else:  # Ray pointing left
+            max_x = -player.rect.centerx
+
+        if math.sin(angle) > 0:  # Ray pointing down
+            max_y = surface_height - player.rect.centery
+        else:  # Ray pointing up
+            max_y = -player.rect.centery
+
+        # Calculate the ray length to the edge of the screen
+        ray_length_x = max_x / math.cos(angle) if math.cos(angle) != 0 else float('inf')
+        ray_length_y = max_y / math.sin(angle) if math.sin(angle) != 0 else float('inf')
+        ray_length = min(ray_length_x, ray_length_y)
+
+        # Calculate the end point of the ray
         end_x = player.rect.centerx + ray_length * math.cos(angle)
-        end_y = player.rect.centery - ray_length * math.sin(angle)
+        end_y = player.rect.centery + ray_length * math.sin(angle)
         rays.append(((player.rect.centerx, player.rect.centery), (end_x, end_y)))
 
     return rays
@@ -145,7 +159,6 @@ def draw_rays():
 def add_vehicle():
     # add a vehicle
     if len(vehicle_group) < 30:
-        
         # ensure there's enough gap between vehicles
         add_vehicle = True
         for vehicle in vehicle_group:
@@ -154,11 +167,11 @@ def add_vehicle():
                 
         if add_vehicle:
             # select a random horizontal position within the road boundaries
-            x_position = random.randint(int(lane_width), int(lane_width + road_width - 40))  # Ensure the vehicle stays within the road
+            x_position = random.randint(int(lane_width/3), int(lane_width + road_width - 10))  # Ensure the vehicle stays within the road
             # select a random vertical position above the screen
-            y_position = random.randint(-300, -50)  # Random position above the screen
-            # select a random vehicle image
-            color = [random.randint(0, 255) for _ in range(3)]  # random color
+            y_position = random.randint(-300, -50)
+            # select a random vehicle color
+            color = [random.randint(0, 255) for _ in range(3)]
             
             # select a random label from the VehicleType enum
             label = random.choice(list(VehicleType)).value
@@ -175,7 +188,7 @@ def draw_vehicle():
         
         # render the label above the rectangle
         font = pygame.font.Font(pygame.font.get_default_font(), 14)
-        text = font.render(vehicle.label, True, (255, 255, 255))  # white text
+        text = font.render(vehicle.label, True, white)  # white text
         text_rect = text.get_rect(center=(vehicle.rect.centerx, vehicle.rect.top - 10))  # Position above the rectangle
         screen.blit(text, text_rect)
     
@@ -184,7 +197,7 @@ def draw_vehicle():
         vehicle.rect.y += speed
         
         # remove vehicle once it goes off screen
-        if vehicle.rect.top >= height:
+        if vehicle.rect.top >= screen.get_height():
             vehicle.kill()
             
             # add to objects
@@ -199,7 +212,7 @@ def draw_vehicle():
     
 def draw_3d_vehicle(vehicle):
     # Calculate the scale factor based on the vehicle's vertical position
-    distance_factor = max(0.1, 1 - (vehicle.rect.centery / height))  # Closer objects are larger
+    distance_factor = max(0.1, 1 - (vehicle.rect.centery / screen.get_height()))  # Closer objects are larger
     scaled_width = int(vehicle.width * distance_factor)
     scaled_height = int(vehicle.height * distance_factor)
 
@@ -218,26 +231,26 @@ def draw_3d_road():
 
     # Define the road's trapezoid points
     road_points = [
-        (width / 2 - road_top_width / 2, 0),  # Top-left
-        (width / 2 + road_top_width / 2, 0),  # Top-right
-        (width / 2 + road_bottom_width / 2, height),  # Bottom-right
-        (width / 2 - road_bottom_width / 2, height),  # Bottom-left
+        (screen.get_width() / 2 - road_top_width / 2, 0),  # Top-left
+        (screen.get_width() / 2 + road_top_width / 2, 0),  # Top-right
+        (screen.get_width() / 2 + road_bottom_width / 2, screen.get_height()),  # Bottom-right
+        (screen.get_width() / 2 - road_bottom_width / 2, screen.get_height()),  # Bottom-left
     ]
 
     # Draw the road
     pygame.draw.polygon(screen, gray, road_points)
 
     # Draw lane markers with perspective
-    for i in range(1, NUMBER_OF_LANES):
-        lane_x_top = width / 2 - road_top_width / 2 + i * (road_top_width / NUMBER_OF_LANES)
-        lane_x_bottom = width / 2 - road_bottom_width / 2 + i * (road_bottom_width / NUMBER_OF_LANES)
-        pygame.draw.line(screen, white, (lane_x_top, 0), (lane_x_bottom, height), 2)
+    #for i in range(1, NUMBER_OF_LANES):
+    lane_x_top = screen.get_width() / 2 - road_top_width / 2 + (road_top_width)
+    lane_x_bottom = screen.get_width() / 2 - road_bottom_width / 2 + (road_bottom_width)
+    pygame.draw.line(screen, white, (lane_x_top, 0), (lane_x_bottom, screen.get_height()), 2)
 
 def draw_3d_rays():
     rays = calculate_rays(player)
     for ray_start, ray_end in rays:
         # Scale the ray's endpoint based on its distance
-        distance_factor = max(0.1, 1 - (ray_end[1] / height))
+        distance_factor = max(0.1, 1 - (ray_end[1] / screen.get_height()))
         scaled_end_x = ray_start[0] + (ray_end[0] - ray_start[0]) * distance_factor
         scaled_end_y = ray_start[1] + (ray_end[1] - ray_start[1]) * distance_factor
 
@@ -288,14 +301,41 @@ def draw_shadow(vehicle):
         shadow_height,
     )
     pygame.draw.ellipse(screen, shadow_color, shadow_rect)
+# Checkbox state
+is_rays_enabled = [True]  # Use a mutable object to allow modification inside the action function
+
+def toggle_rays():
+    is_rays_enabled[0] = not is_rays_enabled[0]  # Toggle the checkbox state
+
+def draw_simple_checkbox(x, y, size, is_checked, color, action, label=""):
+    # Draw the checkbox border
+    rect = pygame.draw.rect(screen, color, (x, y, size, size), 2)
+
+    for event in pygame.event.get():
+        if event.type == MOUSEBUTTONDOWN:
+            if rect.collidepoint(event.pos):
+                mouse = pygame.mouse.get_pos()
+                if x < mouse[0] < x + size and y < mouse[1] < y + size:
+                    action()
+                
+    # Draw the checkmark if the checkbox is checked
+    if is_checked:
+        pygame.draw.line(screen, color, (x + 4, y + size // 2), (x + size // 3, y + size - 4), 3)
+        pygame.draw.line(screen, color, (x + size // 3, y + size - 4), (x + size - 4, y + 4), 3)
+
+    # Render the label text next to the checkbox
+    font = pygame.font.Font(pygame.font.get_default_font(), 20)
+    text_surface = font.render(label, True, color)
+    text_rect = text_surface.get_rect(midleft=(x + size + 10, y + size // 2))
+    screen.blit(text_surface, text_rect)
     
 # game loop
 running = True
 while running:
     
     clock.tick(fps)
-    
-    for event in pygame.event.get():
+    events = pygame.event.get()
+    for event in events:
         if event.type == QUIT:
             running = False
         '''
@@ -325,6 +365,7 @@ while running:
     draw_environment()
     
     #draw_3d_road()
+    #draw_3d_rays()
     # Draw vehicles with 3D scaling
     #for vehicle in vehicle_group:
     #    draw_3d_vehicle(vehicle)
@@ -333,7 +374,11 @@ while running:
     draw_own()
     add_vehicle()
     draw_vehicle()
-    draw_rays()
+    # Draw the checkbox
+    #draw_simple_checkbox(50, screen.get_height() - 100, 20, is_rays_enabled[0], white, toggle_rays, label="Enable Rays")
+    # Use the menu state
+    if is_rays_enabled[0]:
+        draw_rays()
     
     # display the objects count
     font = pygame.font.Font(pygame.font.get_default_font(), 16)
