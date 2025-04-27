@@ -128,7 +128,7 @@ print(os_name)
 try:
     # Bring up can0 interface at 500kbps
     print('Loading DBC....')
-    db = cantools.db.load_file('volvo_MRR.dbc')
+    db = cantools.db.load_file("database/volvo_MRR.dbc")
     if(os_name != 'Windows'):
         print('Bring up CAN0....')
         os.system("sudo ifconfig can0 down")
@@ -141,8 +141,8 @@ try:
         can_bus = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
     time.sleep(0.1)
     print('Ready')
-except OSError:
-    print('Cannot find CAN board.')
+except OSError as e:
+    print(f'Cannot find CAN board: {e}')
     os._exit(0)
 
 # Main loop

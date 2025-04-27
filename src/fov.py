@@ -17,9 +17,12 @@ SCALE = (SCREEN_WIDTH / 2) / CASTED_RAYS
 #global variables
 #game window
 win = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-carImage_png = pygame.image.load("car-top-view.png").convert_alpha()
+
+#draw car
+car = pygame.Rect(50, 60, 50, 80)
+#carImage_png = pygame.image.load("car-top-view.png").convert_alpha()
 # New width and height will be (50, 30).
-IMAGE_SMALL = pygame.transform.scale(carImage_png, (50, 50))
+IMAGE_SMALL = pygame.transform.scale(car, (50, 50))
 
 player_x = (SCREEN_WIDTH / 2) / 2
 player_y = SCREEN_HEIGHT - 80
