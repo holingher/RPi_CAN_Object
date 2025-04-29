@@ -4,7 +4,7 @@ import time
 import os
 import e2e
 import platform
-import time
+import distro
 from dataclasses import dataclass
 from can import Message
 
@@ -27,6 +27,8 @@ message_car = Message(
 )
 
 os_name = 'Windows'
+distro_name = distro.name()
+print('Distro: ', distro_name)
 # For a list of PIDs visit https://en.wikipedia.org/wiki/OBD-II_PIDs
 ####################################################################
 #https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
@@ -196,12 +198,13 @@ list_of_Object_attr = (
 ################# RX ################
 
 os_name = platform.system()
+
 print(os_name)
 try:
     # Bring up can0 interface at 500kbps
     print('Loading DBC....')
     db = cantools.db.load_file("database/volvo_MRR.dbc")
-    if(os_name != 'Windows'):
+    if(os_name != 'Windows') and distro_name != 'Ubuntu':
         print('Bring up CAN....')
         os.system("sudo ifconfig can0 down")
         os.system("sudo ifconfig can1 down")
@@ -212,7 +215,7 @@ try:
         time.sleep(0.1)
         can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
         can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-    elif(os_name == 'Windows'):
+    elif(os_name == 'Windows') or (distro_name == 'Ubuntu'):
         print('Bring up CAN....')
         can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
         can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
@@ -230,7 +233,7 @@ def process_rx():
         #while True:
         #treat Object list 
         try:
-            if(os_name != 'Windows'):
+            if(os_name != 'Windows') and distro_name != 'Ubuntu':
                 message_radar = can_bus_radar.recv(timeout=0.1)
             # treat only specific range of messages
             if message_radar.arbitration_id >= list_of_Object_attr[0].arbitration_id and message_radar.arbitration_id < list_of_Object_attr[-1].arbitration_id:
@@ -275,7 +278,7 @@ def process_rx():
             os._exit(0)
             
         try:
-            if(os_name != 'Windows'):
+            if(os_name != 'Windows') and distro_name != 'Ubuntu':
                 message_car = can_bus_car.recv(timeout=0.1)
             if message_car.arbitration_id == VEHICLE_SPEED:
                 EgoMotion_data.Speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
@@ -294,7 +297,7 @@ def process_rx():
                 
     except KeyboardInterrupt:
         #Catch keyboard interrupt
-        if(os_name != 'Windows'):
+        if(os_name != 'Windows') and distro_name != 'Ubuntu':
             print('\n\rClosing interface...')
             os.system("sudo ip link set can0 down")
             os.system("sudo ip link set can1 down")
