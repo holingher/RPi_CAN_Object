@@ -3,9 +3,11 @@ import e2e
 import time
 import os
 import platform
+import distro
 from datetime import datetime
+from defines import *
 
-os_name = 'Windows'
+distro_name = distro.name()
 # Getting the current date and time
 dt = datetime.now()
 # getting the timestamp
@@ -54,27 +56,14 @@ length_240 = len(data_240_tx_msg) - 2
 offset_240 = 0
 data_id_240 = 0xB7A
 
-if(os_name != 'Windows'):
-    print('Bring up CAN0....')
-    os.system("sudo ifconfig can0 down")
-    time.sleep(0.1)
-    os.system("sudo ip link set can0 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
-    time.sleep(0.1)
-    can_bus = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-elif(os_name == 'Windows'):
-    print('Bring up CAN0....')
-    can_bus = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
-time.sleep(0.1)
-print('Ready')
-
-period = 0.06
+MSG_CYCLE_TIME = 50
 os_name = platform.system()
 
 data_210_tx_msg_carConfig = data_210_tx_msg[:5]
 data_210_tx_msg_PowerMode = data_210_tx_msg[5:] 
 
 ##############################################################
-def process_200(ts):
+def process_200(can_bus_radar:can.BusABC, ts):
     # Send Vehicle motion state
     e2e.p05.e2e_p05_protect(data=data_200_tx_msg,
                             length=length_200,
@@ -90,13 +79,13 @@ def process_200(ts):
                         is_fd=True,
                         timestamp=ts)
     try:
-        can_bus.send(msg=msg_200)
+        can_bus_radar.send(msg=msg_200)
         print("Tx:  {}".format(msg_200))
     except can.CanError:
         print("Message NOT sent")
          
 ##############################################################
-def process_210(ts):  
+def process_210(can_bus_radar:can.BusABC, ts):  
     # Send a CarConfig
     e2e.p05.e2e_p05_protect(data=data_210_tx_msg_carConfig,
                             length=length_210_carConfig,
@@ -118,36 +107,35 @@ def process_210(ts):
                                     is_fd=True,
                                     timestamp=ts)
     try:
-        #can_bus.send_periodic(msgs = message_CarConfig, period = 0.06 )
-        can_bus.send(msg=msg_210)
+        can_bus_radar.send(msg=msg_210)
         print("Tx:  {}".format(msg_210))
     except can.CanError:
         print("Message NOT sent") 
         
 ##############################################################
-def process_220(ts): 
-        # Send Global Snapshot
-        e2e.p05.e2e_p05_protect(data=data_220_tx_msg,
-                                length=length_220,
-                                offset=offset_220,
-                                data_id=data_id_220,
-                                increment_counter=True)
-        #print('data_220_tx_msg crc:')
-        #print(data_220_tx_msg.hex()) 
-        msg_220 = can.Message(arbitration_id=PID_GLOBALSNAPSHOT, 
-                            data=data_220_tx_msg, 
-                            is_extended_id=False, 
-                            dlc=len(data_220_tx_msg), 
-                            is_fd=True,
-                            timestamp=ts)
-        try:                                                                                                                                                        
-            can_bus.send(msg=msg_220)
-            print("Tx:  {}".format(msg_220))
-        except can.CanError:
-            print("Message NOT sent") 
+def process_220(can_bus_radar:can.BusABC, ts): 
+    # Send Global Snapshot
+    e2e.p05.e2e_p05_protect(data=data_220_tx_msg,
+                            length=length_220,
+                            offset=offset_220,
+                            data_id=data_id_220,
+                            increment_counter=True)
+    #print('data_220_tx_msg crc:')
+    #print(data_220_tx_msg.hex()) 
+    msg_220 = can.Message(arbitration_id=PID_GLOBALSNAPSHOT, 
+                        data=data_220_tx_msg, 
+                        is_extended_id=False, 
+                        dlc=len(data_220_tx_msg), 
+                        is_fd=True,
+                        timestamp=ts)
+    try:                                                                                                                                                        
+        can_bus_radar.send(msg=msg_220)
+        print("Tx:  {}".format(msg_220))
+    except can.CanError as e:
+        print("Message NOT sent", e)
             
 ##############################################################
-def process_230(ts): 
+def process_230(can_bus_radar:can.BusABC, ts): 
     # Send a VehMode
     e2e.p05.e2e_p05_protect(data=data_230_tx_msg,
                             length=length_230,
@@ -163,54 +151,60 @@ def process_230(ts):
                           data=data_230_tx_msg,  
                           is_fd=True)
     try: 
-        can_bus.send(msg=msg_230) 
+        can_bus_radar.send(msg=msg_230) 
         print("Tx:  {}".format(msg_230))
-    except can.CanError:
-        print("Message NOT sent")
+    except can.CanError as e:
+        print("Message NOT sent", e)
         
 ##############################################################
-def process_240(ts): 
-        # Send Func info
-        e2e.p05.e2e_p05_protect(data=data_240_tx_msg,
-                                length=length_240,
-                                offset=offset_240,
-                                data_id=data_id_240,
-                                increment_counter=True)
-        #print('data_240_tx_msg crc:')
-        #print(data_240_tx_msg.hex()) 
-        msg_240 = can.Message(arbitration_id=PID_FUNCINFO, 
-                            data=data_240_tx_msg, 
-                            is_extended_id=False, 
-                            dlc=len(data_240_tx_msg), 
-                            is_fd=True,
-                            timestamp=ts)
-        try:
-            can_bus.send(msg=msg_240)
-            print("Tx:  {}".format(msg_240))
-        except can.CanError:
-            print("Message NOT sent") 
+def process_240(can_bus_radar:can.BusABC, ts): 
+    # Send Func info
+    e2e.p05.e2e_p05_protect(data=data_240_tx_msg,
+                            length=length_240,
+                            offset=offset_240,
+                            data_id=data_id_240,
+                            increment_counter=True)
+    #print('data_240_tx_msg crc:')
+    #print(data_240_tx_msg.hex()) 
+    msg_240 = can.Message(arbitration_id=PID_FUNCINFO, 
+                        data=data_240_tx_msg, 
+                        is_extended_id=False, 
+                        dlc=len(data_240_tx_msg), 
+                        is_fd=True,
+                        timestamp=ts)
+    try:
+        can_bus_radar.send(msg=msg_240)
+        print("Tx:  {}".format(msg_240))
+    except can.CanError:
+        print("Message NOT sent") 
             
 ##############################################################
+# Store the previous timestamp
+previous_time = time.time()
 # Main loop
-def main():
-    try:
-        while True:
-            dt = datetime.now()
-            ts = datetime.timestamp(dt)
-            process_200(ts)
-            process_210(ts)
-            process_220(ts)
-            process_230(ts)  
-            process_240(ts) 
-            time.sleep(0.06) 
+def process_tx(can_bus_radar:can.BusABC, can_bus_car:can.BusABC):
+    global previous_time
+    if can_bus_radar is None:
+        print("CAN bus is not initialized.")
+        return
 
-    except KeyboardInterrupt:
-        #Catch keyboard interrupt
-        if(os_name != 'Windows'):
-            print('\n\rClosing interface...')
-            os.system("sudo ip link set can0 down")
-        print('\n\rKeyboard interrtupt')
-        os._exit(0)
-    
-if __name__ == '__main__':
-    main()
+    current_time = time.time()
+    print("current_time: ", current_time)
+
+    delta = current_time - previous_time
+    delta_interval_ms = int(delta / 1000) # milliseconds
+    #print("delta_interval_ms: ", delta_interval_ms)
+    ts = datetime.timestamp(dt)
+    if delta_interval_ms >= MSG_CYCLE_TIME:  # Check if 60ms has passed
+        # Update the timestamp
+        ts = datetime.timestamp(current_time)
+        # Send messages every 60ms
+        process_200(can_bus_radar, ts)
+        process_210(can_bus_radar, ts)
+        process_220(can_bus_radar, ts)
+        process_230(can_bus_radar, ts)  
+        process_240(can_bus_radar, ts)
+        
+        print("delta_interval_ms: ", previous_time, " ", current_time, " ", delta_interval_ms)
+        previous_time = current_time  # Update the previous time
+

@@ -7,6 +7,7 @@ import platform
 import distro
 from dataclasses import dataclass
 from can import Message
+from defines import *
 
 # Declare message_radar as a CAN message
 message_radar = Message(
@@ -28,7 +29,6 @@ message_car = Message(
 
 os_name = 'Windows'
 distro_name = distro.name()
-print('Distro: ', distro_name)
 # For a list of PIDs visit https://en.wikipedia.org/wiki/OBD-II_PIDs
 ####################################################################
 #https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
@@ -53,10 +53,10 @@ class object_list_for_draw_t:
     DataWidth: float
     HeadingAng: float
     LatAcc: float
-    LatPos: float
+    LatPos: int
     LatVelo: float
     LgtAcc: float
-    LgtPos: float
+    LgtPos: int
     LgtVelo: float
     ModelInfo: int
     Qly: int
@@ -70,7 +70,7 @@ class VIEW_t:
 ObjList_VIEW = VIEW_t(
     MsgCntr=0,
     ScanID=0,
-    object_list_for_draw=[object_list_for_draw_t(0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0) for _ in range(30)]  # Array of 30 elements
+    object_list_for_draw=[object_list_for_draw_t(30, 0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0, 0.0, 0, 0) for _ in range(30)]  # Array of 30 elements
 )
 ####################################################################    
 @dataclass
@@ -201,123 +201,87 @@ list_of_Object_attr = (
 
 os_name = platform.system()
 
-print(os_name)
-try:
-    # Bring up can0 interface at 500kbps
-    print('Loading DBC....')
-    db = cantools.db.load_file("database/volvo_MRR.dbc")
-    if(os_name != 'Windows') and distro_name != 'Ubuntu':
-        print('Bring up CAN....')
-        os.system("sudo ifconfig can0 down")
-        os.system("sudo ifconfig can1 down")
-        time.sleep(0.1)
-        os.system("sudo ip link set can0 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
-        time.sleep(0.1)
-        os.system("sudo ip link set can1 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
-        time.sleep(0.1)
-        can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-        can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-    elif(os_name == 'Windows') or (distro_name == 'Ubuntu'):
-        print('Bring up CAN....')
-        can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
-        can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
-    time.sleep(0.1)
-except OSError as e:
-    print(f'Cannot find CAN board: {e}')
-    os._exit(0)
-print('Ready')
-
 def process_rx():
     global message_radar, message_car
     reference_ID = list_of_Object_attr[0].arbitration_id
-    # Main loop
+
+    #treat Object list 
     try:
-        #while True:
-        #treat Object list 
-        try:
-            if(os_name != 'Windows') and distro_name != 'Ubuntu':
-                message_radar = can_bus_radar.recv(timeout=0.1)
-            # treat only specific range of messages
-            if message_radar.arbitration_id >= list_of_Object_attr[0].arbitration_id and message_radar.arbitration_id < list_of_Object_attr[-1].arbitration_id:
-                for entry in list_of_Object_attr:
-                    if(entry.arbitration_id == message_radar.arbitration_id):
-                        if e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_DataId) is True:
-                            # Retrieve the decoded message once
-                            decoded_message = db.get_message_by_frame_id(message_radar.arbitration_id)
-
-                            # Update ObjList_VIEW MsgCntr and ScanID
-                            ObjList_VIEW.MsgCntr = decoded_message.get_signal_by_name(entry.MsgCntr)
-                            ObjList_VIEW.ScanID = decoded_message.get_signal_by_name(entry.ScanID)
-
-                            # Calculate the index for object_list_for_draw
-                            index_entry = entry.arbitration_id - reference_ID
-
-                            # Update the first object properties
-                            first_obj_prop = entry.msg_obj_prop.first_obj_prop
-                            ObjList_VIEW.object_list_for_draw[index_entry] = object_list_for_draw_t(
-                                object_id=first_obj_prop.object_id,
-                                Class=decoded_message.get_signal_by_name(first_obj_prop.Class),
-                                DataConf=decoded_message.get_signal_by_name(first_obj_prop.DataConf),
-                                DataLen=decoded_message.get_signal_by_name(first_obj_prop.DataLen),
-                                DataWidth=decoded_message.get_signal_by_name(first_obj_prop.DataWidth),
-                                HeadingAng=decoded_message.get_signal_by_name(first_obj_prop.HeadingAng),
-                                LatAcc=decoded_message.get_signal_by_name(first_obj_prop.LatAcc),
-                                LatPos=decoded_message.get_signal_by_name(first_obj_prop.LatPos),
-                                LatVelo=decoded_message.get_signal_by_name(first_obj_prop.LatVelo),
-                                LgtAcc=decoded_message.get_signal_by_name(first_obj_prop.LgtAcc),
-                                LgtPos=decoded_message.get_signal_by_name(first_obj_prop.LgtPos),
-                                LgtVelo=decoded_message.get_signal_by_name(first_obj_prop.LgtVelo),
-                                ModelInfo=decoded_message.get_signal_by_name(first_obj_prop.ModelInfo),
-                                Qly=decoded_message.get_signal_by_name(first_obj_prop.Qly)
-                            )
-                            
-                            # Update the second object properties
-                            second_obj_prop = entry.msg_obj_prop.second_obj_prop
-                            ObjList_VIEW.object_list_for_draw[index_entry + 1] = object_list_for_draw_t(
-                                object_id=second_obj_prop.object_id,
-                                Class=decoded_message.get_signal_by_name(second_obj_prop.Class),
-                                DataConf=decoded_message.get_signal_by_name(second_obj_prop.DataConf),
-                                DataLen=decoded_message.get_signal_by_name(second_obj_prop.DataLen),
-                                DataWidth=decoded_message.get_signal_by_name(second_obj_prop.DataWidth),
-                                HeadingAng=decoded_message.get_signal_by_name(second_obj_prop.HeadingAng),
-                                LatAcc=decoded_message.get_signal_by_name(second_obj_prop.LatAcc),
-                                LatPos=decoded_message.get_signal_by_name(second_obj_prop.LatPos),
-                                LatVelo=decoded_message.get_signal_by_name(second_obj_prop.LatVelo),
-                                LgtAcc=decoded_message.get_signal_by_name(second_obj_prop.LgtAcc),
-                                LgtPos=decoded_message.get_signal_by_name(second_obj_prop.LgtPos),
-                                LgtVelo=decoded_message.get_signal_by_name(second_obj_prop.LgtVelo),
-                                ModelInfo=decoded_message.get_signal_by_name(second_obj_prop.ModelInfo),
-                                Qly=decoded_message.get_signal_by_name(second_obj_prop.Qly)
-                            )
-                            print('arbitration_id:', message_radar.arbitration_id)
-        except OSError as e:
-            print(f'\n\rNo bus from radar!!: {e}')
-            os._exit(0)
-            
-        try:
-            if(os_name != 'Windows') and distro_name != 'Ubuntu':
-                message_car = can_bus_car.recv(timeout=0.1)
-            if message_car.arbitration_id == VEHICLE_SPEED:
-                EgoMotion_data.Speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
-            
-            if message_car.arbitration_id == WHEEL_SPEED:
-                EgoMotion_data.Left_wheel_speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
-                EgoMotion_data.Right_wheel_speed = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
-                #EgoMotion_data.YawRate = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrYawRate')
-                #EgoMotion_data.LatAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLatAcc')
-                #EgoMotion_data.LongAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLongAcc')
-                print('arbitration_id:', message_car.arbitration_id)
-                print('Decoded:', message_car.data)
-        except OSError as e:
-            print(f'\n\rNo bus from car!!: {e}')
-            os._exit(0)
-                
-    except KeyboardInterrupt:
-        #Catch keyboard interrupt
         if(os_name != 'Windows') and distro_name != 'Ubuntu':
-            print('\n\rClosing interface...')
-            os.system("sudo ip link set can0 down")
-            os.system("sudo ip link set can1 down")
-        print('\n\rKeyboard interrtupt')
+            message_radar = can_bus_radar.recv(timeout=0.1)
+        # treat only specific range of messages
+        if message_radar.arbitration_id >= list_of_Object_attr[0].arbitration_id and message_radar.arbitration_id < list_of_Object_attr[-1].arbitration_id:
+            for entry in list_of_Object_attr:
+                if(entry.arbitration_id == message_radar.arbitration_id):
+                    if e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_DataId) is True:
+                        # Retrieve the decoded message once
+                        decoded_message = dbc.get_message_by_frame_id(message_radar.arbitration_id)
+
+                        # Update ObjList_VIEW MsgCntr and ScanID
+                        ObjList_VIEW.MsgCntr = decoded_message.get_signal_by_name(entry.MsgCntr)
+                        ObjList_VIEW.ScanID = decoded_message.get_signal_by_name(entry.ScanID)
+
+                        # Calculate the index for object_list_for_draw
+                        index_entry = entry.arbitration_id - reference_ID
+
+                        # Update the first object properties
+                        first_obj_prop = entry.msg_obj_prop.first_obj_prop
+                        ObjList_VIEW.object_list_for_draw[index_entry] = object_list_for_draw_t(
+                            object_id=first_obj_prop.object_id,
+                            Class=decoded_message.get_signal_by_name(first_obj_prop.Class),
+                            DataConf=decoded_message.get_signal_by_name(first_obj_prop.DataConf),
+                            DataLen=decoded_message.get_signal_by_name(first_obj_prop.DataLen),
+                            DataWidth=decoded_message.get_signal_by_name(first_obj_prop.DataWidth),
+                            HeadingAng=decoded_message.get_signal_by_name(first_obj_prop.HeadingAng),
+                            LatAcc=decoded_message.get_signal_by_name(first_obj_prop.LatAcc),
+                            LatPos=decoded_message.get_signal_by_name(first_obj_prop.LatPos),
+                            LatVelo=decoded_message.get_signal_by_name(first_obj_prop.LatVelo),
+                            LgtAcc=decoded_message.get_signal_by_name(first_obj_prop.LgtAcc),
+                            LgtPos=decoded_message.get_signal_by_name(first_obj_prop.LgtPos),
+                            LgtVelo=decoded_message.get_signal_by_name(first_obj_prop.LgtVelo),
+                            ModelInfo=decoded_message.get_signal_by_name(first_obj_prop.ModelInfo),
+                            Qly=decoded_message.get_signal_by_name(first_obj_prop.Qly)
+                        )
+                        
+                        # Update the second object properties
+                        second_obj_prop = entry.msg_obj_prop.second_obj_prop
+                        ObjList_VIEW.object_list_for_draw[index_entry + 1] = object_list_for_draw_t(
+                            object_id=second_obj_prop.object_id,
+                            Class=decoded_message.get_signal_by_name(second_obj_prop.Class),
+                            DataConf=decoded_message.get_signal_by_name(second_obj_prop.DataConf),
+                            DataLen=decoded_message.get_signal_by_name(second_obj_prop.DataLen),
+                            DataWidth=decoded_message.get_signal_by_name(second_obj_prop.DataWidth),
+                            HeadingAng=decoded_message.get_signal_by_name(second_obj_prop.HeadingAng),
+                            LatAcc=decoded_message.get_signal_by_name(second_obj_prop.LatAcc),
+                            LatPos=decoded_message.get_signal_by_name(second_obj_prop.LatPos),
+                            LatVelo=decoded_message.get_signal_by_name(second_obj_prop.LatVelo),
+                            LgtAcc=decoded_message.get_signal_by_name(second_obj_prop.LgtAcc),
+                            LgtPos=decoded_message.get_signal_by_name(second_obj_prop.LgtPos),
+                            LgtVelo=decoded_message.get_signal_by_name(second_obj_prop.LgtVelo),
+                            ModelInfo=decoded_message.get_signal_by_name(second_obj_prop.ModelInfo),
+                            Qly=decoded_message.get_signal_by_name(second_obj_prop.Qly)
+                        )
+                        print('arbitration_id:', message_radar.arbitration_id)
+    except OSError as e:
+        print(f'\n\rNo bus from radar!!: {e}')
         os._exit(0)
+        
+    try:
+        if(os_name != 'Windows') and distro_name != 'Ubuntu':
+            message_car = can_bus_car.recv(timeout=0.1)
+        if message_car.arbitration_id == VEHICLE_SPEED:
+            EgoMotion_data.Speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
+        
+        if message_car.arbitration_id == WHEEL_SPEED:
+            EgoMotion_data.Left_wheel_speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
+            EgoMotion_data.Right_wheel_speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
+            #EgoMotion_data.YawRate = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrYawRate')
+            #EgoMotion_data.LatAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLatAcc')
+            #EgoMotion_data.LongAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLongAcc')
+            print('arbitration_id:', message_car.arbitration_id)
+            print('Decoded:', message_car.data)
+    except OSError as e:
+        print(f'\n\rNo bus from car!!: {e}')
+        os._exit(0)
+            
     return ObjList_VIEW.ScanID

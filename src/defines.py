@@ -1,6 +1,15 @@
 from enum import Enum
+import cantools.database
 import pygame
+import can
+import cantools
 
+INVALID_OBJECT_ID = 30  # Invalid object ID for vehicle
+
+dbc = cantools.database.can.database.Database()
+
+os_name = 'Windows'
+distro_name = 'Ubuntu'
 # create the window
 surface_width = 1024
 surface_height = 600
@@ -49,9 +58,11 @@ class Vehicle(pygame.sprite.Sprite):
         
         self.rect = self.image.get_rect()
         self.rect.center = [x, y]
-        
         # set the label for the vehicle
         self.label = label
+        
+    def update(self, id_object, x, y, width, height, speed, dataConfidence, label=''):
+        self.rect = pygame.Rect(x, y, width, height)
         
 class EgoVehicle(Vehicle):
     def __init__(self, x, y):

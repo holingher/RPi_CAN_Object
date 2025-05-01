@@ -1,3 +1,4 @@
+import random
 import pygame
 import math
 from pygame import Surface
@@ -91,58 +92,80 @@ def draw_own(screen: Surface, ego_vehicle: EgoVehicle, ego_group: Group):
     text_rect = text.get_rect(center=(ego_vehicle.rect.centerx, ego_vehicle.rect.top - 10))  # Position above the rectangle
     screen.blit(text, text_rect)
 
-def draw_vehicle(screen: Surface, vehicle_group: Group):
+def draw_vehicle(screen: Surface, vehicle: Vehicle):
     vehicle: Vehicle
-    # draw the vehicles and their labels
-    for vehicle in vehicle_group:
-        # draw the vehicle rectangle
-        screen.blit(vehicle.image, vehicle.rect)
-        
-        # render the label above the rectangle
-        font = pygame.font.Font(pygame.font.get_default_font(), 14)
-        text = font.render(vehicle.label + " " + str(vehicle.dataConfidence), True, white)  # white text
-        text_rect = text.get_rect(center=(vehicle.rect.centerx, vehicle.rect.top - 10))  # Position above the rectangle
-        screen.blit(text, text_rect)
 
-        # make the vehicles move
-        vehicle.rect.y += vehicle.speed
-        
-        # remove vehicle once it goes off screen
-        if vehicle.rect.top >= screen.get_height():
-            vehicle.kill()
+    # draw the vehicle rectangle
+    screen.blit(source=vehicle.image, dest=vehicle.rect)
     
-    # draw the vehicles
-    vehicle_group.draw(screen)
-    
-def add_or_update_vehicle(object_entry: object_list_for_draw_t, vehicle_group: Group):
-    vehicle: Vehicle = None
-    # Check if the vehicle already exists in the group using object_id
-    for vehicle in vehicle_group:
-        if object_entry and vehicle.object_id == object_entry.object_id:
-            # Update vehicle properties
-            vehicle.rect.x = object_entry.LatPos  # Update lateral position
-            vehicle.rect.y = object_entry.LgtPos  # Update longitudinal position
-            vehicle.width = object_entry.DataWidth  # Update width
-            vehicle.height = object_entry.DataLen  # Update width
-            vehicle.speed = object_entry.LgtVelo  # Update speed
-            vehicle.dataConfidence = object_entry.DataConf  # Update confidence
-            return  # Exit after updating the vehicle
+    # render the label above the rectangle
+    font = pygame.font.Font(pygame.font.get_default_font(), 14)
+    text = font.render(vehicle.label + " " + str(vehicle.dataConfidence), True, white)  # white text
+    text_rect = text.get_rect(center=(vehicle.rect.centerx, vehicle.rect.top - 10))  # Position above the rectangle
+    screen.blit(text, text_rect)
 
-    # If no matching vehicle exists, add a new one
-    if object_entry:
-        '''
-        if random_data == True:
-            color = [random.randint(0, 255) for _ in range(3)]  # Random color
+    # make the vehicles move
+    vehicle.rect.y += vehicle.speed
+    
+    # remove vehicle once it goes off screen
+    if vehicle.rect.top >= screen.get_height():
+        vehicle.kill()
+    
+def update_vehicle(screen: Surface, object_entry: object_list_for_draw_t, vehicle_group: Group):
+    vehicle: Vehicle
+    for vehicle in vehicle_group:
+        # Check if the vehicle already exists in the group using object_id
+        if vehicle.id == object_entry.object_id:
+            #print("Before: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)
+            vehicle.kill()  # Remove the vehicle from the group
             vehicle = Vehicle(
-                object_id=random.randint(0, 29),
-                color=color,
-                x_position=random.randint(int(road_width/3), int(road_width + road_width - 10)),
-                y_position=random.randint(-300, -50),
-                width=random.randint(20, 50),
-                label=random.choice(list(VehicleType)).value
+                id_object=object_entry.object_id,
+                color=(
+                    yellow if object_entry.Class == 0 else  # Unknown
+                    red if object_entry.Class == 1 else  # Car
+                    green if object_entry.Class == 2 else  # Bicycle
+                    gray  # Pedestrian
+                ),
+                x=int(object_entry.LatPos),  # Update lateral position
+                y=int(object_entry.LgtPos),  # Update longitudinal position
+                width=int(object_entry.DataWidth),  # Update width
+                height=int(object_entry.DataLen),  # Update height
+                speed=object_entry.LgtVelo,  # Update speed
+                dataConfidence=object_entry.DataConf,  # Update confidence
+                label = (
+                    'Unknown' if object_entry.Class == 0 else
+                    'Car' if object_entry.Class == 1 else
+                    'Bicycle' if object_entry.Class == 2 else
+                    'Pedestrian'
+                )
             )
-        else:
-        '''
+            #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.Class)
+            vehicle.update(vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)  # Update the vehicle's position
+            vehicle_group.add(vehicle)  # Add the updated vehicle back to the group
+            draw_vehicle(screen, vehicle)  # Draw the updated vehicle
+            #return  # Exit after updating the vehicle
+    # draw the vehicles
+    vehicle_group.draw(screen) 
+       
+def init_vehicles(vehicle_group: Group):
+    # Initialize 30 vehicles in the vehicle_group
+    for i in range(30):
+        vehicle = Vehicle(
+            id_object=i,
+            color=random.choice([red, green, yellow, gray]),  # Random color
+            x=-200,#random.randint(0, surface_width),  # Random x position
+            y=-200,#random.randint(-300, -50),  # Random y position above the screen
+            width=1,#random.randint(20, 50),  # Random width
+            height=1,#random.randint(20, 50),  # Random height
+            speed=0,#random.randint(1, 5),  # Random speed
+            dataConfidence=0,#random.randint(0, 100),  # Random confidence
+            label=f"Unknown {i}"  # Label for the vehicle
+        )
+        vehicle_group.add(vehicle)
+    '''
+    # If no matching vehicle exists, add a new one
+    if object_entry and vehicle.id == 30:
+        print("Adding vehicle with ID:", object_entry.object_id)
         color = (
             yellow if object_entry.Class == 0 else # Unknown
             red if object_entry.Class == 1 else # Car
@@ -156,13 +179,15 @@ def add_or_update_vehicle(object_entry: object_list_for_draw_t, vehicle_group: G
             'Pedestrian'
         )
         vehicle = Vehicle(
-            object_id=object_entry.object_id,
+            id_object=object_entry.object_id,
             color=color,
-            x_position=object_entry.LatPos,
-            y_position=object_entry.LgtPos,
+            x=int(object_entry.LatPos),
+            y=int(object_entry.LgtPos),
             width=object_entry.DataWidth,
+            height=object_entry.DataLen,
             speed=object_entry.LgtVelo,
             dataConfidence=object_entry.DataConf,
             label=label
         )
         vehicle_group.add(vehicle)
+        '''
