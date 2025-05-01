@@ -1,17 +1,22 @@
 from enum import Enum
-
 import pygame
 
 # create the window
 surface_width = 1024
 surface_height = 600
 
+# define screen size
+screen_size = (surface_width, surface_height)
+
+# road and marker sizes
+road_width = 510
+ego_vehicle_bottom_offset = 30
+
+# number of frames per second
 fps = 120
 
 # game settings
-gameover = False
 objects = 0
-running = True
 
 # colors
 gray = (100, 100, 100)
@@ -20,6 +25,7 @@ red = (200, 0, 0)
 white = (255, 255, 255)
 green = (0, 255, 0)
 black = (0, 0, 0)
+blue = (0, 0, 255)
 
 # Define an enum for vehicle types
 class VehicleType(Enum):
@@ -29,13 +35,15 @@ class VehicleType(Enum):
     PEDESTRIAN = "Pedestrian"
     
 class Vehicle(pygame.sprite.Sprite):
-    def __init__(self, id, color, x, y, width, label=''):
+    def __init__(self, id_object, color, x, y, width, height, speed, dataConfidence, label=''):
         pygame.sprite.Sprite.__init__(self)
         
-        self.id = id
+        self.id = id_object
         # define the size of the rectangle
         self.width = width
-        self.height = 20
+        self.height = height
+        self.speed = speed
+        self.dataConfidence = dataConfidence
         self.image = pygame.Surface((self.width, self.height))
         self.image.fill(color)
         
@@ -45,14 +53,10 @@ class Vehicle(pygame.sprite.Sprite):
         # set the label for the vehicle
         self.label = label
         
-class PlayerVehicle(Vehicle):
+class EgoVehicle(Vehicle):
     def __init__(self, x, y):
-        color = (0, 0, 255)  # blue color for the player's car
-        super().__init__(color, 255, x, y, 20, label="Own")
-
-# load the crash image
-crash_color = (255, 0, 0)  # red for crash indication
-crash_rect = pygame.Rect(0, 0, 40, 40)  # Placeholder rectangle for crash
+        # Initialize the ego vehicle with a predefined values
+        super().__init__(color=blue, id_object=255, x=x, y=y, width=20, height=30, speed=0, dataConfidence=0, label="Own")
 
 # Define ray tracing parameters
 ray_count = 100  # Number of rays in the field of view
