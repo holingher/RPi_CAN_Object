@@ -18,7 +18,7 @@ pygame.display.set_caption('RPi_Object_radar')
 
 # road and marker sizes
 road_width = 510
-marker_height = 50
+player_bottom_offset = 30
 
 # road and edge markers
 road = (road_width, 0, road_width, screen.get_height())
@@ -27,8 +27,10 @@ road = (road_width, 0, road_width, screen.get_height())
 lane_marker_move_y = 0
 
 # player's starting coordinates
-player_x = round(surface_width / 2 / 10) * 10
-player_y = screen.get_height() - marker_height
+# half of the screen width
+player_x = round(surface_width / 2 / 10) * 10 
+#bottom of the screen minus the player's car height
+player_y = screen.get_height() - player_bottom_offset
 
 # frame settings
 clock = pygame.time.Clock()
@@ -41,55 +43,86 @@ vehicle_group = pygame.sprite.Group()
 player = PlayerVehicle(player_x, player_y)
 player_group.add(player)
      
-def add_vehicle(object_entry: object_list_for_draw_t):
-    speed = 2
-    dataConfidence = 0
-    color = (0, 255, 0)  # green color for the vehicles
-    # add a vehicle
-    if len(vehicle_group) < 30:
-        #print('obj count', ObjList_VIEW.object_list_for_draw.count())
-        # ensure there's enough gap between vehicles
-        add_vehicle = True
-        for vehicle in vehicle_group:
-            if vehicle.rect.top < vehicle.rect.height:
-                add_vehicle = False
+def add_or_update_vehicle(object_entry: object_list_for_draw_t):
+    # Check if the vehicle already exists in the group using object_id
+    for vehicle in vehicle_group:
+        if object_entry and vehicle.object_id == object_entry.object_id:
+            # Update vehicle properties
+            vehicle.rect.x = object_entry.LatPos  # Update lateral position
+            vehicle.rect.y = object_entry.LgtPos  # Update longitudinal position
+            vehicle.speed = object_entry.LgtVelo  # Update speed
+            vehicle.dataConfidence = object_entry.DataConf  # Update confidence
+            return  # Exit after updating the vehicle
 
-        if add_vehicle:
-            if random_data == True:
-                # select a random horizontal position within the road boundaries
-                x_position = random.randint(int(road_width/3), int(road_width + road_width - 10))  # Ensure the vehicle stays within the road
-                # select a random vertical position above the screen
-                y_position = random.randint(-300, -50)
-                # select a random vehicle color
-                color = [random.randint(0, 255) for _ in range(3)]
-                
-                # select a random label from the VehicleType enum
-                label = random.choice(list(VehicleType)).value
-                dataConfidence = random.randint(0, 100)
-            else:
-                color = [random.randint(0, 255) for _ in range(3)]
-                # use the real x position from the data
-                x_position = object_entry.LatPos
-                # use the real y position from the data
-                y_position = object_entry.LgtPos
-                # use the label classification from the data
-                # get the label of the object
-                if object_entry.Class == 0:
-                    label = 'Unknown'
-                elif object_entry.Class == 1: 
-                    label = 'Car'
-                elif object_entry.Class == 2:
-                    label = 'Bicycle'
-                elif object_entry.Class == 3: 
-                    label = 'Pedestrian'
-                speed = object_entry.LgtVelo
-                dataConfidence = object_entry.DataConf
-                
-            vehicle = Vehicle(color, x_position, y_position, label)
-            vehicle_group.add(vehicle)
+    # If no matching vehicle exists, add a new one
+    if object_entry:
+        if random_data == True:
+            vehicle = Vehicle(
+                object_id=random.randint(0, 29),
+                color=color,
+                x_position=random.randint(int(road_width/3), int(road_width + road_width - 10)),
+                y_position=random.randint(-300, -50),
+                width=random.randint(20, 50),
+                label=random.choice(list(VehicleType)).value
+            )
+        else:
+            color = [random.randint(0, 255) for _ in range(3)]  # Random color
+            label = (
+                'Unknown' if object_entry.Class == 0 else
+                'Car' if object_entry.Class == 1 else
+                'Bicycle' if object_entry.Class == 2 else
+                'Pedestrian'
+            )
+            vehicle = Vehicle(
+                object_id=object_entry.object_id,
+                color=color,
+                x_position=object_entry.LatPos,
+                y_position=object_entry.LgtPos,
+                width=object_entry.DataWidth,
+                label=label
+            )
+        vehicle_group.add(vehicle)
+    '''
+    # If no matching vehicle exists, add a new one
+    if len(vehicle_group) < len(ObjList_VIEW.object_list_for_draw):  # Use the length of ObjList_VIEW.object_list_for_draw
+        if random_data == True:
+            # select a random horizontal position within the road boundaries
+            x_position = random.randint(int(road_width/3), int(road_width + road_width - 10))  # Ensure the vehicle stays within the road
+            # select a random vertical position above the screen
+            y_position = random.randint(-300, -50)
+            # select a random vehicle color
+            color = [random.randint(0, 255) for _ in range(3)]
+            # select a random label from the VehicleType enum
+            label = random.choice(list(VehicleType)).value
+            dataConfidence = random.randint(0, 100)
+            # select a random width
+            veh_width = random.randint(20, 50)
+            object_id = random.randint(0, 29)
+        else:
+            color = [random.randint(0, 255) for _ in range(3)]
+            # use the real x position from the data
+            x_position = object_entry.LatPos
+            # use the real y position from the data
+            y_position = object_entry.LgtPos
+            # use the label classification from the data
+            # get the label of the object
+            label = (
+                'Unknown' if object_entry.Class == 0 else
+                'Car' if object_entry.Class == 1 else
+                'Bicycle' if object_entry.Class == 2 else
+                'Pedestrian'
+            )
+            speed = object_entry.LgtVelo
+            dataConfidence = object_entry.DataConf
+            # set the width of the vehicle
+            veh_width = object_entry.DataWidth
+            object_id = object_entry.object_id
             
+        vehicle = Vehicle(object_id, color, x_position, y_position, veh_width, label)
+        vehicle_group.add(vehicle)
+        
     draw_vehicle(screen, vehicle_group, speed, dataConfidence)
-
+    '''
 # game loop
 running = True
 while running:
@@ -136,12 +169,12 @@ while running:
     draw_own(screen, player, player_group)
     if random_data == True:
         # add a vehicle for random data
-        add_vehicle(None)
+        add_or_update_vehicle(None)
     else:
         if ObjList_VIEW.MsgCntr > 0:
             for object in ObjList_VIEW.object_list_for_draw:
-                # add a vehicle
-                add_vehicle(object)
+                if object.object_id is not None:  # Ensure object_id is valid
+                    add_or_update_vehicle(object)
 
     # Draw the checkbox
     #draw_simple_checkbox(screen, 50, screen.get_height() - 100, 20, is_rays_enabled[0], white, toggle_rays, label="Enable Rays")
@@ -151,6 +184,7 @@ while running:
         
     draw_extraInfo(screen, EgoMotion_data, vehicle_group, scanID)
     
+    draw_vehicle(screen, vehicle_group)
     # check if there's a head on collision
     if pygame.sprite.spritecollide(player, vehicle_group, True):
         gameover = True

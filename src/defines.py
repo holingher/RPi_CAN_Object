@@ -29,12 +29,13 @@ class VehicleType(Enum):
     PEDESTRIAN = "Pedestrian"
     
 class Vehicle(pygame.sprite.Sprite):
-    def __init__(self, color, x, y, label=''):
+    def __init__(self, id, color, x, y, width, label=''):
         pygame.sprite.Sprite.__init__(self)
         
+        self.id = id
         # define the size of the rectangle
-        self.width = 20
-        self.height = 40
+        self.width = width
+        self.height = 20
         self.image = pygame.Surface((self.width, self.height))
         self.image.fill(color)
         
@@ -47,7 +48,7 @@ class Vehicle(pygame.sprite.Sprite):
 class PlayerVehicle(Vehicle):
     def __init__(self, x, y):
         color = (0, 0, 255)  # blue color for the player's car
-        super().__init__(color, x, y, label="Own")
+        super().__init__(color, 255, x, y, 20, label="Own")
 
 # load the crash image
 crash_color = (255, 0, 0)  # red for crash indication

@@ -80,7 +80,7 @@ def draw_rays(screen: Surface, player, vehicle_group: Group):
     # Blit the transparent surface onto the main screen
     screen.blit(ray_surface, (0, 0)) 
 
-def draw_vehicle(screen: Surface, vehicle_group: Group, speed, dataConfidence):
+def draw_vehicle(screen: Surface, vehicle_group: Group):
     # draw the vehicles and their labels
     for vehicle in vehicle_group:
         # draw the vehicle rectangle
@@ -88,13 +88,12 @@ def draw_vehicle(screen: Surface, vehicle_group: Group, speed, dataConfidence):
         
         # render the label above the rectangle
         font = pygame.font.Font(pygame.font.get_default_font(), 14)
-        text = font.render(vehicle.label + " " + str(dataConfidence), True, white)  # white text
+        text = font.render(vehicle.label + " " + str(vehicle.speed), True, white)  # white text
         text_rect = text.get_rect(center=(vehicle.rect.centerx, vehicle.rect.top - 10))  # Position above the rectangle
         screen.blit(text, text_rect)
-    
-    # make the vehicles move
-    for vehicle in vehicle_group:
-        vehicle.rect.y += speed
+
+        # make the vehicles move
+        vehicle.rect.y += vehicle.speed
         
         # remove vehicle once it goes off screen
         if vehicle.rect.top >= screen.get_height():
@@ -109,7 +108,6 @@ def draw_vehicle(screen: Surface, vehicle_group: Group, speed, dataConfidence):
     
     # draw the vehicles
     vehicle_group.draw(screen)
-    
 
 def draw_own(screen: Surface, player, player_group: Group):
     # draw the player's car
