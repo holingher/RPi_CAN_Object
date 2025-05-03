@@ -1,18 +1,19 @@
 import os
-import platform
 import distro
 import time
 import can
 import cantools
 from defines import *
 
+########################################################################################
 def init_com():
+    dbc_radar = cantools.database.can.database.Database()
     global os_name, distro_name
     distro_name = distro.name()
     print('Distro: ', distro_name)
     try:
         print('Loading DBC....')
-        dbc = cantools.db.load_file("database/volvo_MRR.dbc")
+        dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
         
         if(os_name != 'Windows') and distro_name != 'Ubuntu':
             print('Bring up CAN Tx....')
@@ -37,8 +38,9 @@ def init_com():
         print(f'Cannot find CAN board: {e}')
         os._exit(0)
     print('Ready')
-    return can_bus_radar, can_bus_car, dbc
+    return can_bus_radar, can_bus_car, dbc_radar
 
+########################################################################################
 def deinit_com():
     if(os_name != 'Windows') and distro_name != 'Ubuntu':
         print('\n\rClosing interface...')

@@ -1,5 +1,6 @@
 import can
 import cantools
+from cantools import database
 import time
 import os
 import e2e
@@ -201,7 +202,7 @@ list_of_Object_attr = (
 
 os_name = platform.system()
 
-def process_rx():
+def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar, can_bus_car):
     global message_radar, message_car
     reference_ID = list_of_Object_attr[0].arbitration_id
 
@@ -215,7 +216,7 @@ def process_rx():
                 if(entry.arbitration_id == message_radar.arbitration_id):
                     if e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_DataId) is True:
                         # Retrieve the decoded message once
-                        decoded_message = dbc.get_message_by_frame_id(message_radar.arbitration_id)
+                        decoded_message = radar_dbc.get_message_by_frame_id(message_radar.arbitration_id)
 
                         # Update ObjList_VIEW MsgCntr and ScanID
                         ObjList_VIEW.MsgCntr = decoded_message.get_signal_by_name(entry.MsgCntr)
@@ -270,11 +271,11 @@ def process_rx():
         if(os_name != 'Windows') and distro_name != 'Ubuntu':
             message_car = can_bus_car.recv(timeout=0.1)
         if message_car.arbitration_id == VEHICLE_SPEED:
-            EgoMotion_data.Speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
+            EgoMotion_data.Speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
         
         if message_car.arbitration_id == WHEEL_SPEED:
-            EgoMotion_data.Left_wheel_speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
-            EgoMotion_data.Right_wheel_speed = dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
+            EgoMotion_data.Left_wheel_speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
+            EgoMotion_data.Right_wheel_speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
             #EgoMotion_data.YawRate = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrYawRate')
             #EgoMotion_data.LatAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLatAcc')
             #EgoMotion_data.LongAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLongAcc')

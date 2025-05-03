@@ -6,8 +6,6 @@ import cantools
 
 INVALID_OBJECT_ID = 30  # Invalid object ID for vehicle
 
-dbc = cantools.database.can.database.Database()
-
 os_name = 'Windows'
 distro_name = 'Ubuntu'
 # create the window

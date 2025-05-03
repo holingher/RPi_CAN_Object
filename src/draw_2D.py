@@ -1,11 +1,24 @@
-import random
 import pygame
 import math
 from pygame import Surface
+from pygame import display as pygame_display
+from pygame import event as pygame_event
+from pygame import QUIT
 from pygame.sprite import Group
-from rx import object_list_for_draw_t
+from rx import ObjList_VIEW, object_list_for_draw_t
 from defines import *
 
+########################################################################################
+def draw_update():
+    pygame_display.update()
+
+######################################################################################## 
+def draw_get_events(): 
+    # Get the list of events
+    return pygame_event.get()
+
+
+########################################################################################
 def draw_environment(screen: Surface):
     # draw the background
     screen.fill(black)
@@ -25,6 +38,7 @@ def draw_environment(screen: Surface):
     #    pygame.draw.rect(screen, white, (center_lane + 45, y + lane_marker_move_y, marker_width, marker_height))
 
 
+########################################################################################
 # Function to calculate rays based on FOV
 def calculate_rays(screen: Surface, ego_vehicle: EgoVehicle):
     rays = []
@@ -55,7 +69,8 @@ def calculate_rays(screen: Surface, ego_vehicle: EgoVehicle):
         rays.append(((ego_vehicle.rect.centerx, ego_vehicle.rect.centery), (end_x, end_y)))
 
     return rays
-  
+
+########################################################################################
 def draw_rays(screen: Surface, ego_vehicle: EgoVehicle, vehicle_group: Group):
     # Create a transparent surface for drawing rays
     ray_surface = pygame.Surface(screen.get_size(), pygame.SRCALPHA)  # Use SRCALPHA for transparency
@@ -81,6 +96,7 @@ def draw_rays(screen: Surface, ego_vehicle: EgoVehicle, vehicle_group: Group):
     # Blit the transparent surface onto the main screen
     screen.blit(ray_surface, (0, 0)) 
 
+########################################################################################
 def draw_own(screen: Surface, ego_vehicle: EgoVehicle, ego_group: Group):
     # draw the ego's car
     ego_group.draw(screen)
@@ -92,6 +108,7 @@ def draw_own(screen: Surface, ego_vehicle: EgoVehicle, ego_group: Group):
     text_rect = text.get_rect(center=(ego_vehicle.rect.centerx, ego_vehicle.rect.top - 10))  # Position above the rectangle
     screen.blit(text, text_rect)
 
+########################################################################################
 def draw_vehicle(screen: Surface, vehicle: Vehicle):
     vehicle: Vehicle
 
@@ -110,84 +127,110 @@ def draw_vehicle(screen: Surface, vehicle: Vehicle):
     # remove vehicle once it goes off screen
     if vehicle.rect.top >= screen.get_height():
         vehicle.kill()
-    
-def update_vehicle(screen: Surface, object_entry: object_list_for_draw_t, vehicle_group: Group):
+
+########################################################################################
+ 
+def update_vehicle(screen: Surface, vehicle_group: Group):
+    object_entry: object_list_for_draw_t
     vehicle: Vehicle
-    for vehicle in vehicle_group:
-        # Check if the vehicle already exists in the group using object_id
-        if vehicle.id == object_entry.object_id:
-            #print("Before: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)
-            vehicle.kill()  # Remove the vehicle from the group
-            vehicle = Vehicle(
-                id_object=object_entry.object_id,
-                color=(
-                    yellow if object_entry.Class == 0 else  # Unknown
-                    red if object_entry.Class == 1 else  # Car
-                    green if object_entry.Class == 2 else  # Bicycle
-                    gray  # Pedestrian
-                ),
-                x=int(object_entry.LatPos),  # Update lateral position
-                y=int(object_entry.LgtPos),  # Update longitudinal position
-                width=int(object_entry.DataWidth),  # Update width
-                height=int(object_entry.DataLen),  # Update height
-                speed=object_entry.LgtVelo,  # Update speed
-                dataConfidence=object_entry.DataConf,  # Update confidence
-                label = (
-                    'Unknown' if object_entry.Class == 0 else
-                    'Car' if object_entry.Class == 1 else
-                    'Bicycle' if object_entry.Class == 2 else
-                    'Pedestrian'
-                )
-            )
-            #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.Class)
-            vehicle.update(vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)  # Update the vehicle's position
-            vehicle_group.add(vehicle)  # Add the updated vehicle back to the group
-            draw_vehicle(screen, vehicle)  # Draw the updated vehicle
-            #return  # Exit after updating the vehicle
+    
+    if ObjList_VIEW.MsgCntr > 0:
+            for object_entry in ObjList_VIEW.object_list_for_draw:
+                if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
+                    for vehicle in vehicle_group:
+                        # Check if the vehicle already exists in the group using object_id
+                        if vehicle.id == object_entry.object_id:
+                            #print("Before: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)
+                            vehicle.kill()  # Remove the vehicle from the group
+                            vehicle = Vehicle(
+                                id_object=object_entry.object_id,
+                                color=(
+                                    yellow if object_entry.Class == 0 else  # Unknown
+                                    red if object_entry.Class == 1 else  # Car
+                                    green if object_entry.Class == 2 else  # Bicycle
+                                    gray  # Pedestrian
+                                ),
+                                x=int(object_entry.LatPos),  # Update lateral position
+                                y=int(object_entry.LgtPos),  # Update longitudinal position
+                                width=int(object_entry.DataWidth),  # Update width
+                                height=int(object_entry.DataLen),  # Update height
+                                speed=object_entry.LgtVelo,  # Update speed
+                                dataConfidence=object_entry.DataConf,  # Update confidence
+                                label = (
+                                    'Unknown' if object_entry.Class == 0 else
+                                    'Car' if object_entry.Class == 1 else
+                                    'Bicycle' if object_entry.Class == 2 else
+                                    'Pedestrian'
+                                )
+                            )
+                            #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.Class)
+                            vehicle.update(vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)  # Update the vehicle's position
+                            vehicle_group.add(vehicle)  # Add the updated vehicle back to the group
+                            draw_vehicle(screen, vehicle)  # Draw the updated vehicle
+                            #return  # Exit after updating the vehicle
     # draw the vehicles
     vehicle_group.draw(screen) 
-       
-def init_vehicles(vehicle_group: Group):
-    # Initialize 30 vehicles in the vehicle_group
-    for i in range(30):
-        vehicle = Vehicle(
-            id_object=i,
-            color=random.choice([red, green, yellow, gray]),  # Random color
-            x=-200,#random.randint(0, surface_width),  # Random x position
-            y=-200,#random.randint(-300, -50),  # Random y position above the screen
-            width=1,#random.randint(20, 50),  # Random width
-            height=1,#random.randint(20, 50),  # Random height
-            speed=0,#random.randint(1, 5),  # Random speed
-            dataConfidence=0,#random.randint(0, 100),  # Random confidence
-            label=f"Unknown {i}"  # Label for the vehicle
-        )
-        vehicle_group.add(vehicle)
-    '''
-    # If no matching vehicle exists, add a new one
-    if object_entry and vehicle.id == 30:
-        print("Adding vehicle with ID:", object_entry.object_id)
-        color = (
-            yellow if object_entry.Class == 0 else # Unknown
-            red if object_entry.Class == 1 else # Car
-            green if object_entry.Class == 2 else # Bicycle
-            gray # Pedestrian
-        )
-        label = (
-            'Unknown' if object_entry.Class == 0 else
-            'Car' if object_entry.Class == 1 else
-            'Bicycle' if object_entry.Class == 2 else
-            'Pedestrian'
-        )
-        vehicle = Vehicle(
-            id_object=object_entry.object_id,
-            color=color,
-            x=int(object_entry.LatPos),
-            y=int(object_entry.LgtPos),
-            width=object_entry.DataWidth,
-            height=object_entry.DataLen,
-            speed=object_entry.LgtVelo,
-            dataConfidence=object_entry.DataConf,
-            label=label
-        )
-        vehicle_group.add(vehicle)
-        '''
+ 
+def update_vehicle_ai(screen: Surface, vehicle_group: Group):
+    vehicle: Vehicle
+    """
+    Updates the vehicles in the vehicle group based on the object list for drawing.
+    """
+    if ObjList_VIEW.MsgCntr > 0:
+        # Create a mapping of object IDs to vehicles for quick lookup
+        vehicle_map = {vehicle.id: vehicle for vehicle in vehicle_group}
+
+        for object_entry in ObjList_VIEW.object_list_for_draw:
+            if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
+                # Check if the vehicle already exists in the group
+                if object_entry.object_id in vehicle_map:
+                    vehicle = vehicle_map[object_entry.object_id]
+                    # Update the existing vehicle's attributes
+                    vehicle.rect.x = int(object_entry.LatPos)
+                    vehicle.rect.y = int(object_entry.LgtPos)
+                    vehicle.width = int(object_entry.DataWidth)
+                    vehicle.height = int(object_entry.DataLen)
+                    vehicle.speed = object_entry.LgtVelo
+                    vehicle.dataConfidence = object_entry.DataConf
+                    vehicle.label = (
+                        'Unknown' if object_entry.Class == 0 else
+                        'Car' if object_entry.Class == 1 else
+                        'Bicycle' if object_entry.Class == 2 else
+                        'Pedestrian'
+                    )
+                    vehicle.image.fill(
+                        yellow if object_entry.Class == 0 else
+                        red if object_entry.Class == 1 else
+                        green if object_entry.Class == 2 else
+                        gray
+                    )
+                else:
+                    # Create a new vehicle if it doesn't exist
+                    vehicle = Vehicle(
+                        id_object=object_entry.object_id,
+                        color=(
+                            yellow if object_entry.Class == 0 else
+                            red if object_entry.Class == 1 else
+                            green if object_entry.Class == 2 else
+                            gray
+                        ),
+                        x=int(object_entry.LatPos),
+                        y=int(object_entry.LgtPos),
+                        width=int(object_entry.DataWidth),
+                        height=int(object_entry.DataLen),
+                        speed=object_entry.LgtVelo,
+                        dataConfidence=object_entry.DataConf,
+                        label=(
+                            'Unknown' if object_entry.Class == 0 else
+                            'Car' if object_entry.Class == 1 else
+                            'Bicycle' if object_entry.Class == 2 else
+                            'Pedestrian'
+                        )
+                    )
+                    vehicle_group.add(vehicle)  # Add the new vehicle to the group
+
+                # Draw the vehicle
+                draw_vehicle(screen, vehicle)
+
+    # Draw all vehicles in the group
+    vehicle_group.draw(screen)

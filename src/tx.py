@@ -1,17 +1,9 @@
 import can
-import e2e
+import e2e.p05
 import time
-import os
-import platform
-import distro
-from datetime import datetime
 from defines import *
 
-distro_name = distro.name()
 # Getting the current date and time
-dt = datetime.now()
-# getting the timestamp
-ts = datetime.timestamp(dt)
 ################# TX ################
 # 0x200
 PID_VEHMOTIONSTATE       = 0x200
@@ -56,9 +48,6 @@ length_240 = len(data_240_tx_msg) - 2
 offset_240 = 0
 data_id_240 = 0xB7A
 
-MSG_CYCLE_TIME = 50
-os_name = platform.system()
-
 data_210_tx_msg_carConfig = data_210_tx_msg[:5]
 data_210_tx_msg_PowerMode = data_210_tx_msg[5:] 
 
@@ -70,8 +59,7 @@ def process_200(can_bus_radar:can.BusABC, ts):
                             offset=offset_200,
                             data_id=data_id_200,
                             increment_counter=True)
-    #print('data_200_tx_msg crc:')
-    #print(data_200_tx_msg.hex()) 
+
     msg_200 = can.Message(arbitration_id=PID_VEHMOTIONSTATE, 
                         data=data_200_tx_msg, 
                         is_extended_id=False, 
@@ -80,7 +68,7 @@ def process_200(can_bus_radar:can.BusABC, ts):
                         timestamp=ts)
     try:
         can_bus_radar.send(msg=msg_200)
-        print("Tx:  {}".format(msg_200))
+        #print("Tx:  {}".format(msg_200))
     except can.CanError:
         print("Message NOT sent")
          
@@ -98,8 +86,7 @@ def process_210(can_bus_radar:can.BusABC, ts):
                                     offset=offset_210_PowerMode,
                                     increment_counter=True)
     data_210_tx_msg = data_210_tx_msg_carConfig + data_210_tx_msg_PowerMode  
-    #print('data_210_tx_msg crc:')
-    #print(data_210_tx_msg.hex())
+
     msg_210 = can.Message(arbitration_id=PID_CARCONFIG, 
                                     data=data_210_tx_msg, 
                                     is_extended_id= False, 
@@ -108,7 +95,7 @@ def process_210(can_bus_radar:can.BusABC, ts):
                                     timestamp=ts)
     try:
         can_bus_radar.send(msg=msg_210)
-        print("Tx:  {}".format(msg_210))
+        #print("Tx:  {}".format(msg_210))
     except can.CanError:
         print("Message NOT sent") 
         
@@ -120,8 +107,7 @@ def process_220(can_bus_radar:can.BusABC, ts):
                             offset=offset_220,
                             data_id=data_id_220,
                             increment_counter=True)
-    #print('data_220_tx_msg crc:')
-    #print(data_220_tx_msg.hex()) 
+
     msg_220 = can.Message(arbitration_id=PID_GLOBALSNAPSHOT, 
                         data=data_220_tx_msg, 
                         is_extended_id=False, 
@@ -130,7 +116,7 @@ def process_220(can_bus_radar:can.BusABC, ts):
                         timestamp=ts)
     try:                                                                                                                                                        
         can_bus_radar.send(msg=msg_220)
-        print("Tx:  {}".format(msg_220))
+        #print("Tx:  {}".format(msg_220))
     except can.CanError as e:
         print("Message NOT sent", e)
             
@@ -142,8 +128,7 @@ def process_230(can_bus_radar:can.BusABC, ts):
                             offset=offset_230,
                             data_id=data_id_230,
                             increment_counter=True)
-    #print('data_230_tx_msg crc:')
-    #print(data_230_tx_msg.hex()) 
+
     msg_230 = can.Message(timestamp=ts,
                           arbitration_id=PID_VEHMODES, 
                           is_extended_id=False,
@@ -152,7 +137,7 @@ def process_230(can_bus_radar:can.BusABC, ts):
                           is_fd=True)
     try: 
         can_bus_radar.send(msg=msg_230) 
-        print("Tx:  {}".format(msg_230))
+        #print("Tx:  {}".format(msg_230))
     except can.CanError as e:
         print("Message NOT sent", e)
         
@@ -164,8 +149,7 @@ def process_240(can_bus_radar:can.BusABC, ts):
                             offset=offset_240,
                             data_id=data_id_240,
                             increment_counter=True)
-    #print('data_240_tx_msg crc:')
-    #print(data_240_tx_msg.hex()) 
+
     msg_240 = can.Message(arbitration_id=PID_FUNCINFO, 
                         data=data_240_tx_msg, 
                         is_extended_id=False, 
@@ -174,37 +158,23 @@ def process_240(can_bus_radar:can.BusABC, ts):
                         timestamp=ts)
     try:
         can_bus_radar.send(msg=msg_240)
-        print("Tx:  {}".format(msg_240))
+        #print("Tx:  {}".format(msg_240))
     except can.CanError:
         print("Message NOT sent") 
             
 ##############################################################
-# Store the previous timestamp
-previous_time = time.time()
-# Main loop
-def process_tx(can_bus_radar:can.BusABC, can_bus_car:can.BusABC):
-    global previous_time
+# process the TX messages to radar
+def process_tx_radar(can_bus_radar:can.BusABC):
     if can_bus_radar is None:
         print("CAN bus is not initialized.")
         return
 
-    current_time = time.time()
-    print("current_time: ", current_time)
+    # Get the current time in milliseconds
+    current_time = time.time() * 1000  # Convert to milliseconds
 
-    delta = current_time - previous_time
-    delta_interval_ms = int(delta / 1000) # milliseconds
-    #print("delta_interval_ms: ", delta_interval_ms)
-    ts = datetime.timestamp(dt)
-    if delta_interval_ms >= MSG_CYCLE_TIME:  # Check if 60ms has passed
-        # Update the timestamp
-        ts = datetime.timestamp(current_time)
-        # Send messages every 60ms
-        process_200(can_bus_radar, ts)
-        process_210(can_bus_radar, ts)
-        process_220(can_bus_radar, ts)
-        process_230(can_bus_radar, ts)  
-        process_240(can_bus_radar, ts)
-        
-        print("delta_interval_ms: ", previous_time, " ", current_time, " ", delta_interval_ms)
-        previous_time = current_time  # Update the previous time
+    process_200(can_bus_radar, current_time)
+    process_210(can_bus_radar, current_time)
+    process_220(can_bus_radar, current_time)
+    process_230(can_bus_radar, current_time)  
+    process_240(can_bus_radar, current_time)
 
