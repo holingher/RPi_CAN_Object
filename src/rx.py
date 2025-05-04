@@ -202,7 +202,7 @@ list_of_Object_attr = (
 
 os_name = platform.system()
 
-def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar, can_bus_car):
+def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar):
     global message_radar, message_car
     reference_ID = list_of_Object_attr[0].arbitration_id
 
@@ -266,16 +266,22 @@ def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar, can_bu
     except OSError as e:
         print(f'\n\rNo bus from radar!!: {e}')
         os._exit(0)
+  
+    return ObjList_VIEW
+
+
+def process_rx_car(can_bus_car):
+    global message_car
         
     try:
         if(os_name != 'Windows') and distro_name != 'Ubuntu':
             message_car = can_bus_car.recv(timeout=0.1)
         if message_car.arbitration_id == VEHICLE_SPEED:
-            EgoMotion_data.Speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
+            EgoMotion_data.Speed = 0#radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')
         
         if message_car.arbitration_id == WHEEL_SPEED:
-            EgoMotion_data.Left_wheel_speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
-            EgoMotion_data.Right_wheel_speed = radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
+            EgoMotion_data.Left_wheel_speed = 0#radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLeftWheelSpeed')
+            EgoMotion_data.Right_wheel_speed = 0#radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrRightWheelSpeed')
             #EgoMotion_data.YawRate = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrYawRate')
             #EgoMotion_data.LatAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLatAcc')
             #EgoMotion_data.LongAcc = db.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrLongAcc')
@@ -284,5 +290,5 @@ def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar, can_bu
     except OSError as e:
         print(f'\n\rNo bus from car!!: {e}')
         os._exit(0)
-            
-    return ObjList_VIEW.ScanID
+
+    return EgoMotion_data

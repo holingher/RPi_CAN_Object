@@ -1,12 +1,16 @@
-import pygame
 import math
-from pygame import Surface
+from pygame import Surface as draw_2D_Surface
 from pygame import display as pygame_display
 from pygame import event as pygame_event
-from pygame import QUIT
+from pygame import draw as pygame_draw
+from pygame import font as pygame_font
+from pygame import QUIT, SRCALPHA
 from pygame.sprite import Group
-from rx import ObjList_VIEW, object_list_for_draw_t
-from defines import *
+from rx import VIEW_t, object_list_for_draw_t
+from defines import black, white, yellow, gray, red, green
+from defines import EgoVehicle, Vehicle
+from defines import fov_angle, ray_count, ray_color_hit, ray_color_no_hit
+from defines import INVALID_OBJECT_ID
 
 ########################################################################################
 def draw_update():
@@ -19,7 +23,7 @@ def draw_get_events():
 
 
 ########################################################################################
-def draw_environment(screen: Surface):
+def draw_environment(screen: draw_2D_Surface):
     # draw the background
     screen.fill(black)
     # draw the road
@@ -40,7 +44,7 @@ def draw_environment(screen: Surface):
 
 ########################################################################################
 # Function to calculate rays based on FOV
-def calculate_rays(screen: Surface, ego_vehicle: EgoVehicle):
+def calculate_rays(screen: draw_2D_Surface, ego_vehicle: EgoVehicle):
     rays = []
     start_angle = -fov_angle*1.5  # Start angle relative to the ego vehicle's forward direction
     angle_step = fov_angle / (ray_count - 1)  # Angle between each ray
@@ -71,9 +75,9 @@ def calculate_rays(screen: Surface, ego_vehicle: EgoVehicle):
     return rays
 
 ########################################################################################
-def draw_rays(screen: Surface, ego_vehicle: EgoVehicle, vehicle_group: Group):
+def draw_rays(screen: draw_2D_Surface, ego_vehicle: EgoVehicle, vehicle_group: Group):
     # Create a transparent surface for drawing rays
-    ray_surface = pygame.Surface(screen.get_size(), pygame.SRCALPHA)  # Use SRCALPHA for transparency
+    ray_surface = draw_2D_Surface(screen.get_size(), SRCALPHA)  # Use SRCALPHA for transparency
     
     # Calculate and draw rays for the ego vehicle's field of view
     rays = calculate_rays(screen, ego_vehicle)
@@ -89,40 +93,37 @@ def draw_rays(screen: Surface, ego_vehicle: EgoVehicle, vehicle_group: Group):
         # Draw the ray
         if hit_point:
             # Draw the ray only up to the collision point
-            pygame.draw.line(ray_surface, ray_color_hit, ray_start, hit_point[0], 2)  # Green ray for collision
+            pygame_draw.line(ray_surface, ray_color_hit, ray_start, hit_point[0], 2)  # Green ray for collision
         else:
             # Draw the full ray if no collision
-            pygame.draw.line(ray_surface, ray_color_no_hit, ray_start, ray_end, 2)
+            pygame_draw.line(ray_surface, ray_color_no_hit, ray_start, ray_end, 2)
     # Blit the transparent surface onto the main screen
     screen.blit(ray_surface, (0, 0)) 
 
 ########################################################################################
-def draw_own(screen: Surface, ego_vehicle: EgoVehicle, ego_group: Group):
+def draw_own(screen: draw_2D_Surface, ego_vehicle: EgoVehicle, ego_group: Group):
     # draw the ego's car
     ego_group.draw(screen)
     # draw the ego vehicle rectangle
     screen.blit(ego_vehicle.image, ego_vehicle.rect)
     # render the label above the rectangle
-    font = pygame.font.Font(pygame.font.get_default_font(), 14)
+    font = pygame_font.Font(pygame_font.get_default_font(), 14)
     text = font.render(ego_vehicle.label, True, white)  # white text
     text_rect = text.get_rect(center=(ego_vehicle.rect.centerx, ego_vehicle.rect.top - 10))  # Position above the rectangle
     screen.blit(text, text_rect)
 
 ########################################################################################
-def draw_vehicle(screen: Surface, vehicle: Vehicle):
+def draw_vehicle(screen: draw_2D_Surface, vehicle: Vehicle):
     vehicle: Vehicle
 
     # draw the vehicle rectangle
     screen.blit(source=vehicle.image, dest=vehicle.rect)
     
     # render the label above the rectangle
-    font = pygame.font.Font(pygame.font.get_default_font(), 14)
+    font = pygame_font.Font(pygame_font.get_default_font(), 14)
     text = font.render(vehicle.label + " " + str(vehicle.dataConfidence), True, white)  # white text
     text_rect = text.get_rect(center=(vehicle.rect.centerx, vehicle.rect.top - 10))  # Position above the rectangle
     screen.blit(text, text_rect)
-
-    # make the vehicles move
-    vehicle.rect.y += vehicle.speed
     
     # remove vehicle once it goes off screen
     if vehicle.rect.top >= screen.get_height():
@@ -130,18 +131,19 @@ def draw_vehicle(screen: Surface, vehicle: Vehicle):
 
 ########################################################################################
  
-def update_vehicle(screen: Surface, vehicle_group: Group):
+def update_vehicle(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicle_group: Group):
     object_entry: object_list_for_draw_t
     vehicle: Vehicle
     
-    if ObjList_VIEW.MsgCntr > 0:
-            for object_entry in ObjList_VIEW.object_list_for_draw:
+    if ObjList_VIEW_local.MsgCntr > 0:
+            for object_entry in ObjList_VIEW_local.object_list_for_draw:
                 if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
                     for vehicle in vehicle_group:
                         # Check if the vehicle already exists in the group using object_id
                         if vehicle.id == object_entry.object_id:
                             #print("Before: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)
                             vehicle.kill()  # Remove the vehicle from the group
+                            
                             vehicle = Vehicle(
                                 id_object=object_entry.object_id,
                                 color=(
@@ -163,6 +165,8 @@ def update_vehicle(screen: Surface, vehicle_group: Group):
                                     'Pedestrian'
                                 )
                             )
+                            # make the vehicles move
+                            vehicle.rect.y += vehicle.speed
                             #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.Class)
                             vehicle.update(vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)  # Update the vehicle's position
                             vehicle_group.add(vehicle)  # Add the updated vehicle back to the group
@@ -171,16 +175,16 @@ def update_vehicle(screen: Surface, vehicle_group: Group):
     # draw the vehicles
     vehicle_group.draw(screen) 
  
-def update_vehicle_ai(screen: Surface, vehicle_group: Group):
+def update_vehicle_ai(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicle_group: Group):
     vehicle: Vehicle
     """
     Updates the vehicles in the vehicle group based on the object list for drawing.
     """
-    if ObjList_VIEW.MsgCntr > 0:
+    if ObjList_VIEW_local.MsgCntr > 0:
         # Create a mapping of object IDs to vehicles for quick lookup
         vehicle_map = {vehicle.id: vehicle for vehicle in vehicle_group}
 
-        for object_entry in ObjList_VIEW.object_list_for_draw:
+        for object_entry in ObjList_VIEW_local.object_list_for_draw:
             if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
                 # Check if the vehicle already exists in the group
                 if object_entry.object_id in vehicle_map:
