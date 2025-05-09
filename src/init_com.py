@@ -13,9 +13,9 @@ def init_com():
     print('Distro: ', distro_name)
     try:
         print('Loading DBC....')
-        dbc_radar = cantools.db.load_file("../database/volvo_MRR.dbc")
         
         if(distro_name == 'Raspbian GNU/Linux'):
+            dbc_radar = cantools.db.load_file("../database/volvo_MRR.dbc")
             print('Bring up CAN Tx....')
             os.system("sudo ifconfig can0 down")
             os.system("sudo ifconfig can1 down")
@@ -27,6 +27,7 @@ def init_com():
             can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_radar = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
         elif(os_name == 'Windows') or (distro_name == 'Ubuntu'):
+            dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
             print('Bring up CAN Tx....')
             can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
