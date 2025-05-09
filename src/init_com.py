@@ -15,7 +15,7 @@ def init_com():
         print('Loading DBC....')
         dbc_radar = cantools.db.load_file("../database/volvo_MRR.dbc")
         
-        if(os_name != 'Windows') and distro_name != 'Ubuntu':
+        if(distro_name == 'Raspbian GNU/Linux'):
             print('Bring up CAN Tx....')
             os.system("sudo ifconfig can0 down")
             os.system("sudo ifconfig can1 down")
@@ -42,7 +42,7 @@ def init_com():
 
 ########################################################################################
 def deinit_com():
-    if(os_name != 'Windows') and distro_name != 'Ubuntu':
+    if(distro_name == 'Raspbian GNU/Linux'):
         print('\n\rClosing interface...')
         os.system("sudo ip link set can0 down")
         os.system("sudo ip link set can1 down")
