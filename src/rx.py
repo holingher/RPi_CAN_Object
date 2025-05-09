@@ -268,8 +268,26 @@ def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar):
         os._exit(0)
   
     return ObjList_VIEW
+'''
+| CAN ID (hex)    | Function (Suspected / Confirmed)                    |
+| --------------- | --------------------------------------------------- |
+| `0x1A6`         | Engine RPM (tachometer signal)                      |
+| `0x1F0`         | Vehicle speed                                       |
+| `0x329`         | Steering angle                                      |
+| `0x17C`         | Accelerator pedal position                          |
+| `0x324`         | Brake pedal status                                  |
+| `0x1A0`         | Gear position (on automatic)                        |
+| `0x30C`         | Wheel speeds (individual or averaged)               |
+| `0x18F`         | Fuel level / fuel-related data                      |
+| `0x280`         | Lights, indicators (turn signals, headlight status) |
+| `0x130`         | Door open/close status                              |
+| `0x1D0`         | HVAC / climate control                              |
+| `0x100`–`0x120` | Dashboard-related signals (varies by model)         |
 
+or
 
+https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
+'''
 def process_rx_car(can_bus_car):
     global message_car
         

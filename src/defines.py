@@ -20,7 +20,7 @@ road_width = 510
 ego_vehicle_bottom_offset = 30
 
 # number of frames per second
-fps = 120
+fps = 30
 
 # game settings
 objects = 0
