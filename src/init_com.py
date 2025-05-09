@@ -13,7 +13,7 @@ def init_com():
     print('Distro: ', distro_name)
     try:
         print('Loading DBC....')
-        dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
+        dbc_radar = cantools.db.load_file("../database/volvo_MRR.dbc")
         
         if(os_name != 'Windows') and distro_name != 'Ubuntu':
             print('Bring up CAN Tx....')
