@@ -1,7 +1,8 @@
+import os
 import random
+import distro
 from pygame import init as screen_init
 from pygame import quit as screen_quit
-from pygame import event
 from pygame import time
 from pygame import sprite
 from pygame import display
@@ -11,10 +12,17 @@ from defines import *
 
 ########################################################################################
 def init_draw():
+    distro_name = distro.name()
+    if(distro_name == 'Raspbian GNU/Linux'):
+        # Tell the RPi to use the TFT screen and that it's a touchscreen device
+        os.putenv('SDL_VIDEODRIVER', 'fbcon')
+        os.putenv('SDL_FBDEV'      , '/dev/fb1')
+        os.putenv('SDL_MOUSEDRV'   , 'TSLIB')
+        os.putenv('SDL_MOUSEDEV'   , '/dev/input/touchscreen')
     # Initialize the game
     screen_init()
     # Allowing only Certain events
-    event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN])
+    pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN])
     # Set up the game clock
     clock = time.Clock()
     flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN

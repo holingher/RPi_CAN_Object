@@ -8,7 +8,7 @@ from defines import *
 ########################################################################################
 def init_com():
     dbc_radar = cantools.database.can.database.Database()
-    global os_name, distro_name
+    global distro_name
     distro_name = distro.name()
     print('Distro: ', distro_name)
     try:
@@ -26,7 +26,7 @@ def init_com():
             time.sleep(0.1)
             can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_radar = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-        elif(os_name == 'Windows') or (distro_name == 'Ubuntu'):
+        elif(distro_name != 'Raspbian GNU/Linux'):
             dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
             print('Bring up CAN Tx....')
             can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
