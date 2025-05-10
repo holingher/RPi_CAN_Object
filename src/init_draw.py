@@ -14,18 +14,41 @@ def init_draw():
     distro_name = distro.name()
     print('Distro: ', distro_name)
     if(distro_name == 'Raspbian GNU/Linux'):
-        # Tell the RPi to use the TFT screen and that it's a touchscreen device
-        os.putenv('SDL_VIDEODRIVER', 'fbcon')
-        os.putenv('SDL_FBDEV'      , '/dev/fb1')
-        os.putenv('SDL_MOUSEDRV'   , 'TSLIB')
-        os.putenv('SDL_MOUSEDEV'   , '/dev/input/touchscreen')
-    # Initialize the game
-    pygame.init()
+        # Allow running from ssh
+        os.putenv("DISPLAY", ":0")
+
+        disp_no = os.getenv("DISPLAY")
+        if disp_no:
+            print("I'm running under X display = {0}".format(disp_no))
+        # Check which frame buffer drivers are available
+        # Start with fbcon since directfb hangs with composite output
+        drivers = ['x11', 'fbcon', 'directfb', 'svgalib']
+        found = False
+        for driver in drivers:
+            # Make sure that SDL_VIDEODRIVER is set
+            if not os.getenv('SDL_VIDEODRIVER'):
+                os.putenv('SDL_VIDEODRIVER', driver)
+            try:
+                # Initialize the mixer
+                pygame.mixer.pre_init(buffer=4096)
+                pygame.display.init()
+            except pygame.error:
+                print("Driver: {0} failed.".format(driver))
+                continue
+            found = True
+            break
+
+        if not found:
+            raise Exception('No suitable video driver found!')
     # Allowing only Certain events
     pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN])
-    # Set up the game clock
+    # Set up the clock
     clock = time.Clock()
-    flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
+    
+    if(distro_name == 'Raspbian GNU/Linux'):
+        flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
+    else:
+        flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
     # create the screen
     screen = display.set_mode(screen_size, flags, 16)
     # set the application name
