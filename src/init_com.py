@@ -25,7 +25,7 @@ def init_com():
             os.system("sudo ip link set can1 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
             time.sleep(0.1)
             can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-            can_bus_radar = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
+            can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
         elif(distro_name != 'Raspbian GNU/Linux'):
             dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
             print('Bring up CAN Tx....')
