@@ -1,5 +1,5 @@
+import io
 import os
-import distro
 import time
 import can
 import cantools
@@ -8,14 +8,11 @@ from defines import *
 ########################################################################################
 def init_com():
     dbc_radar = cantools.database.can.database.Database()
-    global distro_name
-    distro_name = distro.name()
-    print('Distro: ', distro_name)
     try:
         print('Loading DBC....')
         
-        if(distro_name == 'Raspbian GNU/Linux'):
-            dbc_radar = cantools.db.load_file("../database/volvo_MRR.dbc")
+        if(is_raspberrypi()):
+            dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
             print('Bring up CAN Tx....')
             os.system("sudo ifconfig can0 down")
             os.system("sudo ifconfig can1 down")
@@ -26,9 +23,9 @@ def init_com():
             time.sleep(0.1)
             can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-        elif(distro_name != 'Raspbian GNU/Linux'):
+        else:
             dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
-            print('Bring up CAN Tx....')
+            print('Bring up virtual CAN Tx....')
             can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
         
@@ -43,7 +40,7 @@ def init_com():
 
 ########################################################################################
 def deinit_com():
-    if(distro_name == 'Raspbian GNU/Linux'):
+    if(is_raspberrypi()):
         print('\n\rClosing interface...')
         os.system("sudo ip link set can0 down")
         os.system("sudo ip link set can1 down")

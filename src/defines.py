@@ -1,13 +1,10 @@
 from enum import Enum
-import cantools.database
+import io
 import pygame
-import can
 import cantools
 
 INVALID_OBJECT_ID = 30  # Invalid object ID for vehicle
 
-os_name = 'Windows'
-distro_name = 'Ubuntu'
 # create the window
 surface_width = 1024
 surface_height = 600
@@ -73,3 +70,11 @@ ray_length = 600  # Length of each ray
 ray_color_hit = (0, 255, 0, 64)  # Green color for the rays that hit a vehicle
 ray_color_no_hit = (255, 0, 0, 64)  # Red color for the rays
 fov_angle = 90  # Field of view angle in degrees
+
+########################################################################################
+def is_raspberrypi():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'raspberry pi' in m.read().lower(): return True
+    except Exception: pass
+    return False

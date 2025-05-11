@@ -4,8 +4,6 @@ from cantools import database
 import time
 import os
 import e2e
-import platform
-import distro
 from dataclasses import dataclass
 from can import Message
 from defines import *
@@ -28,8 +26,6 @@ message_car = Message(
     is_fd=True             # CAN FD message
 )
 
-os_name = 'Windows'
-distro_name = distro.name()
 # For a list of PIDs visit https://en.wikipedia.org/wiki/OBD-II_PIDs
 ####################################################################
 #https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
@@ -199,16 +195,13 @@ list_of_Object_attr = (
     PID_OBJ28_to_29
 )
 ################# RX ################
-
-os_name = platform.system()
-
 def process_rx_radar(radar_dbc:database.database.Database, can_bus_radar):
     global message_radar, message_car
     reference_ID = list_of_Object_attr[0].arbitration_id
 
     #treat Object list 
     try:
-        if(os_name != 'Windows') and distro_name != 'Ubuntu':
+        if(is_raspberrypi()):
             message_radar = can_bus_radar.recv(timeout=0.1)
         # treat only specific range of messages
         if message_radar.arbitration_id >= list_of_Object_attr[0].arbitration_id and message_radar.arbitration_id < list_of_Object_attr[-1].arbitration_id:
@@ -292,7 +285,7 @@ def process_rx_car(can_bus_car):
     global message_car
         
     try:
-        if(os_name != 'Windows') and distro_name != 'Ubuntu':
+        if(is_raspberrypi()):
             message_car = can_bus_car.recv(timeout=0.1)
         if message_car.arbitration_id == VEHICLE_SPEED:
             EgoMotion_data.Speed = 0#radar_dbc.get_message_by_frame_id(message_car.arbitration_id).get_signal_by_name('FLR2RdrVehicleSpeed')

@@ -14,3 +14,12 @@ src/__pycache__/tx.cpython-39.pyc
 src/__pycache__/tx.cpython-312.pyc
 src/__pycache__/init_draw.cpython-39.pyc
 src/__pycache__/simulate.cpython-39.pyc
+src/__pycache__/defines.cpython-311.pyc
+src/__pycache__/draw_2D.cpython-311.pyc
+src/__pycache__/tx.cpython-311.pyc
+src/__pycache__/draw_3D.cpython-311.pyc
+src/__pycache__/init_com.cpython-311.pyc
+src/__pycache__/init_draw.cpython-311.pyc
+src/__pycache__/menu.cpython-311.pyc
+src/__pycache__/rx.cpython-311.pyc
+src/__pycache__/simulate.cpython-311.pyc

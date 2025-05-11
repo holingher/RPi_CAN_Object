@@ -12,7 +12,7 @@ from defines import *
 ########################################################################################
 def init_draw():
     distro_name = distro.name()
-    print('Distro: ', distro_name)
+    print('Distro_init: ', distro_name)
     if(distro_name == 'Raspbian GNU/Linux'):
         # Allow running from ssh
         os.putenv("DISPLAY", ":0")
@@ -32,6 +32,8 @@ def init_draw():
                 # Initialize the mixer
                 pygame.mixer.pre_init(buffer=4096)
                 pygame.display.init()
+                # Allowing only Certain events
+                pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN])
             except pygame.error:
                 print("Driver: {0} failed.".format(driver))
                 continue
@@ -40,13 +42,12 @@ def init_draw():
 
         if not found:
             raise Exception('No suitable video driver found!')
-    # Allowing only Certain events
-    pygame.event.set_allowed([QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN])
+    pygame.font.init()
     # Set up the clock
     clock = time.Clock()
     
     if(distro_name == 'Raspbian GNU/Linux'):
-        flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
+        flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
     else:
         flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
     # create the screen
