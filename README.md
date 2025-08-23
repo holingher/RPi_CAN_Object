@@ -15,7 +15,7 @@ A real-time radar object detection and visualization system for Raspberry Pi, fe
 
 ### Hardware
 - Raspberry Pi 4/5 (recommended) or compatible SBC
-- CAN bus interface (optional, for real CAN communication)
+- CAN bus interface (optional, for real CAN communication) - https://wiki.kamamilabs.com/index.php/KAmodRPi_CAN-FD
 - Display (HDMI, LCD, or touchscreen) - plan to use LA080WV5-SL01 -> Signal Interface LVDS (1 ch, 8-bit) , 40 pins FPC
 
 ### Software
