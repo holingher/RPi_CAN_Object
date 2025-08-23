@@ -6,7 +6,7 @@ from pygame import draw as pygame_draw
 from pygame import font as pygame_font
 from pygame import QUIT, SRCALPHA
 from pygame.sprite import Group
-from rx import ObjList_VIEW, VIEW_t, object_list_for_draw_t
+from rx import radar_view, ObjectDrawData
 from defines import black, white, yellow, gray, red, green
 from defines import EgoVehicle, Vehicle
 from defines import fov_angle, ray_count, ray_color_hit, ray_color_no_hit
@@ -132,42 +132,42 @@ def draw_vehicle(screen: draw_2D_Surface, vehicle: Vehicle):
 ########################################################################################
  
 def update_vehicle(screen: draw_2D_Surface, vehicle_group: Group):
-    object_entry: object_list_for_draw_t
+    object_entry: ObjectDrawData
     vehicle: Vehicle
-    
-    if ObjList_VIEW.MsgCntr > 0:
-            for object_entry in ObjList_VIEW.object_list_for_draw:
-                if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
-                    for vehicle in vehicle_group:
-                        # Check if the vehicle already exists in the group using object_id
-                        if vehicle.id == object_entry.object_id:
+
+    if radar_view.msg_counter > 0:
+        for object_entry in radar_view.object_list_for_draw:
+            if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
+                for vehicle in vehicle_group:
+                    # Check if the vehicle already exists in the group using object_id
+                    if vehicle.id == object_entry.object_id:
                             #print("Before: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)
                             vehicle.kill()  # Remove the vehicle from the group
                             
                             vehicle = Vehicle(
                                 id_object=object_entry.object_id,
                                 color=(
-                                    yellow if object_entry.Class == 0 else  # Unknown
-                                    red if object_entry.Class == 1 else  # Car
-                                    green if object_entry.Class == 2 else  # Bicycle
+                                    yellow if object_entry.class_type == 0 else  # Unknown
+                                    red if object_entry.class_type == 1 else  # Car
+                                    green if object_entry.class_type == 2 else  # Bicycle
                                     gray  # Pedestrian
                                 ),
-                                x=int(object_entry.LatPos),  # Update lateral position
-                                y=int(object_entry.LgtPos),  # Update longitudinal position
-                                width=int(object_entry.DataWidth),  # Update width
-                                height=int(object_entry.DataLen),  # Update height
-                                speed=object_entry.LgtVelo,  # Update speed
-                                dataConfidence=object_entry.DataConf,  # Update confidence
+                                x=int(object_entry.lat_pos),  # Update lateral position
+                                y=int(object_entry.lgt_pos),  # Update longitudinal position
+                                width=int(object_entry.data_width),  # Update width
+                                height=int(object_entry.data_len),  # Update height
+                                speed=object_entry.lgt_velocity,  # Update speed
+                                dataConfidence=object_entry.data_conf,  # Update confidence
                                 label = (
-                                    'Unknown' if object_entry.Class == 0 else
-                                    'Car' if object_entry.Class == 1 else
-                                    'Bicycle' if object_entry.Class == 2 else
+                                    'Unknown' if object_entry.class_type == 0 else
+                                    'Car' if object_entry.class_type == 1 else
+                                    'Bicycle' if object_entry.class_type == 2 else
                                     'Pedestrian'
                                 )
                             )
                             # make the vehicles move
                             vehicle.rect.y += vehicle.speed
-                            #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.Class)
+                            #print("After: ", vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence, object_entry.class_type)
                             vehicle.update(vehicle.id, vehicle.rect.x, vehicle.rect.y, vehicle.width, vehicle.height, vehicle.speed, vehicle.dataConfidence)  # Update the vehicle's position
                             vehicle_group.add(vehicle)  # Add the updated vehicle back to the group
                             draw_vehicle(screen, vehicle)  # Draw the updated vehicle
@@ -175,7 +175,7 @@ def update_vehicle(screen: draw_2D_Surface, vehicle_group: Group):
     # draw the vehicles
     vehicle_group.draw(screen) 
  
-def update_vehicle_ai(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicle_group: Group):
+def update_vehicle_ai(screen: draw_2D_Surface, ObjList_VIEW_local, vehicle_group: Group):
     vehicle: Vehicle
     """
     Updates the vehicles in the vehicle group based on the object list for drawing.
@@ -190,22 +190,22 @@ def update_vehicle_ai(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicl
                 if object_entry.object_id in vehicle_map:
                     vehicle = vehicle_map[object_entry.object_id]
                     # Update the existing vehicle's attributes
-                    vehicle.rect.x = int(object_entry.LatPos)
-                    vehicle.rect.y = int(object_entry.LgtPos)
-                    vehicle.width = int(object_entry.DataWidth)
-                    vehicle.height = int(object_entry.DataLen)
-                    vehicle.speed = object_entry.LgtVelo
-                    vehicle.dataConfidence = object_entry.DataConf
+                    vehicle.rect.x = int(object_entry.lat_pos)
+                    vehicle.rect.y = int(object_entry.lgt_pos)
+                    vehicle.width = int(object_entry.data_width)
+                    vehicle.height = int(object_entry.data_len)
+                    vehicle.speed = object_entry.lgt_velocity
+                    vehicle.dataConfidence = object_entry.data_conf
                     vehicle.label = (
-                        'Unknown' if object_entry.Class == 0 else
-                        'Car' if object_entry.Class == 1 else
-                        'Bicycle' if object_entry.Class == 2 else
+                        'Unknown' if object_entry.class_type == 0 else
+                        'Car' if object_entry.class_type == 1 else
+                        'Bicycle' if object_entry.class_type == 2 else
                         'Pedestrian'
                     )
                     vehicle.image.fill(
-                        yellow if object_entry.Class == 0 else
-                        red if object_entry.Class == 1 else
-                        green if object_entry.Class == 2 else
+                        yellow if object_entry.class_type == 0 else
+                        red if object_entry.class_type == 1 else
+                        green if object_entry.class_type == 2 else
                         gray
                     )
                 else:
@@ -213,21 +213,21 @@ def update_vehicle_ai(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicl
                     vehicle = Vehicle(
                         id_object=object_entry.object_id,
                         color=(
-                            yellow if object_entry.Class == 0 else
-                            red if object_entry.Class == 1 else
-                            green if object_entry.Class == 2 else
+                            yellow if object_entry.class_type == 0 else
+                            red if object_entry.class_type == 1 else
+                            green if object_entry.class_type == 2 else
                             gray
                         ),
-                        x=int(object_entry.LatPos),
-                        y=int(object_entry.LgtPos),
-                        width=int(object_entry.DataWidth),
-                        height=int(object_entry.DataLen),
-                        speed=object_entry.LgtVelo,
-                        dataConfidence=object_entry.DataConf,
+                        x=int(object_entry.lat_pos),
+                        y=int(object_entry.lgt_pos),
+                        width=int(object_entry.data_width),
+                        height=int(object_entry.data_len),
+                        speed=object_entry.lgt_velocity,
+                        dataConfidence=object_entry.data_conf,
                         label=(
-                            'Unknown' if object_entry.Class == 0 else
-                            'Car' if object_entry.Class == 1 else
-                            'Bicycle' if object_entry.Class == 2 else
+                            'Unknown' if object_entry.class_type == 0 else
+                            'Car' if object_entry.class_type == 1 else
+                            'Bicycle' if object_entry.class_type == 2 else
                             'Pedestrian'
                         )
                     )

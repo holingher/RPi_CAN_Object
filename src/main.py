@@ -1,9 +1,10 @@
 from multiprocessing import Process, Event, freeze_support
+from typing import Any, Callable
 import time
 from pygame import QUIT
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import ObjList_VIEW, VIEW_t, egomotion_t, object_list_for_draw_t, process_rx_radar, process_rx_car
+from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx
 from tx import process_tx_radar
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle, update_vehicle_ai
@@ -11,7 +12,7 @@ from menu import draw_extraInfo, draw_simple_checkbox, toggle_rays, is_rays_enab
 from simulate import init_process_sim_radar, process_sim_car, process_sim_radar
 from defines import *
       
-def periodic_task(interval_ms, task, stop_event: Event, *args, **kwargs):
+def periodic_task(interval_ms: float, task: Callable, stop_event, *args, **kwargs):
     next_run_time = time.time()
     while not stop_event.is_set():
         current_time = time.time()
@@ -23,14 +24,10 @@ def periodic_task(interval_ms, task, stop_event: Event, *args, **kwargs):
             time.sleep(time_to_sleep)
 
 def main():
+    """Optimized main function with improved data type handling"""
     try:
-        EgoMotion_data_main: egomotion_t
-        '''
-        # Initialize the shared object list using a manager
-        manager = Manager()
-        ObjList_VIEW = manager.list()
-        '''
-  
+        EgoMotion_data_main = ego_motion_data
+        
         # Initialize screen and vehicle groups
         main_screen, main_ego_group, main_vehicle_group, main_ego_vehicle = init_draw()
         # Initialize the CAN communication
@@ -64,9 +61,9 @@ def main():
             # simulate object list
             process_sim_radar(main_radar_dbc, main_can_bus_radar, main_can_bus_car) 
             EgoMotion_data_main = process_sim_car(main_can_bus_car) 
-            # Process the RX data
-            #process_rx_radar(main_radar_dbc, main_can_bus_radar)
-            #process_rx_car(main_can_bus_car)
+            # Process the RX data (uncomment when needed)
+            #process_radar_rx(main_radar_dbc, main_can_bus_radar)
+            #process_car_rx(main_can_bus_car)
 			
             # Fill the screen with a color
             draw_environment(main_screen)
@@ -91,9 +88,9 @@ def main():
             # Use the menu state
             if is_rays_enabled[0]:
                 draw_rays(main_screen, main_ego_vehicle, main_vehicle_group)
-            
-            draw_extraInfo(main_screen, EgoMotion_data_main, main_vehicle_group, ObjList_VIEW.ScanID)
-            
+
+            draw_extraInfo(main_screen, EgoMotion_data_main, main_vehicle_group, radar_view.scan_id)
+
             # Update the display
             draw_update()  
             #print(main_vehicle_group)

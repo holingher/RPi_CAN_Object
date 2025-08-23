@@ -1,108 +1,128 @@
 import math
 import random
-from rx import ObjList_VIEW, VIEW_t, object_list_for_draw_t, EgoMotion_data
+import numpy as np
+from typing import List
+from rx import radar_view, ego_motion_data, ObjectDrawData
 from defines import *
 
 
-def map_value(value, from_low, from_high, to_low, to_high):
-    # Scale the value from one range to another
+def map_value(value: float, from_low: float, from_high: float, to_low: float, to_high: float) -> float:
+    """Optimized value mapping with type hints"""
     return to_low + (value - from_low) * (to_high - to_low) / (from_high - from_low)
 
-latposition = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-longposition = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-object_class = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-longvelo_speed = [30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30]
+# Use numpy arrays for better performance
+latposition: np.ndarray = np.zeros(30, dtype=np.int16)
+longposition: np.ndarray = np.zeros(30, dtype=np.int16)
+object_class: np.ndarray = np.zeros(30, dtype=np.uint8)
+longvelo_speed: np.ndarray = np.full(30, 30.0, dtype=np.float32)
 
-def init_process_sim_radar():
-    EgoMotion_data.Speed = 60.0
+def init_process_sim_radar() -> None:
+    """Initialize radar simulation with optimized data structures"""
+    global ego_motion_data
+    
+    # Create new ego motion data since it's frozen
+    ego_motion_data = ego_motion_data.__class__(speed=60.0)
 
-    for i in range(len(ObjList_VIEW.object_list_for_draw)):
-        # Initialize the object list with None
-        latposition[i] = random.randint(50, 1000)
-        longposition[i] = random.randint(50, 550)
-        object_class[i] = random.randint(0, 3)
-        longvelo_speed[i] = random.uniform(0.0, 10.0)
+    # Initialize arrays with vectorized operations
+    latposition[:] = np.random.randint(50, 1001, size=30)
+    longposition[:] = np.random.randint(50, 551, size=30)
+    object_class[:] = np.random.randint(0, 4, size=30)
+    longvelo_speed[:] = np.random.uniform(0.0, 10.0, size=30)
         
-def process_sim_radar(radar_dbc, can_bus_radar, can_bus_car):
+def process_sim_radar(radar_dbc, can_bus_radar, can_bus_car) -> None:
+    """Optimized radar simulation with vectorized operations"""
     global latposition, longposition
 
-    # Ensure the object list is initialized
-    if not hasattr(ObjList_VIEW, "object_list_for_draw") or ObjList_VIEW.object_list_for_draw is None:
-        ObjList_VIEW.object_list_for_draw = [None] * 30  # Initialize with 30 empty slots
+    # Update message counter (optimized)
+    radar_view.msg_counter = 1  # Could be random.randint(1, 100) if needed
 
-    # Simulate message counter
-    ObjList_VIEW.MsgCntr = 1#random.randint(1, 100)  # Random message counter (1-100)
+    # Vectorized position updates
+    longposition += 1
     
-    # Simulate objects in the list
-    for i in range(len(ObjList_VIEW.object_list_for_draw)):
-        # Generate random or sequential positions
-        # Smoothly randomize latposition
-        #latposition[i] += 1  # Add a small random offset (-5 to 5)
-        longposition[i] += 1  # Add a small random offset (-3 to 3)
+    # Handle boundary conditions with numpy operations
+    mask_lat_high = latposition > surface_width
+    mask_lat_low = latposition < 0
+    mask_long_high = longposition > surface_height
+    mask_long_low = longposition < 0
+    
+    latposition[mask_lat_high] = np.random.randint(200, 1001, size=np.sum(mask_lat_high))
+    latposition[mask_lat_low] = 0
+    longposition[mask_long_high] = np.random.randint(100, 601, size=np.sum(mask_long_high))
+    longposition[mask_long_low] = 0
 
-        # Reset positions if they exceed screen boundaries
-        if latposition[i] > surface_width:
-            latposition[i] = random.randint(200, 1000)
-        elif latposition[i] < 0:
-            latposition[i] = 0
-
-        if longposition[i] > surface_height:
-            longposition[i] = random.randint(100, 600)
-        elif longposition[i] < 0:
-            longposition[i] = 0
-
-        # Update or create a new object entry
-        ObjList_VIEW.object_list_for_draw[i] = object_list_for_draw_t(
+    # Update objects in batch
+    for i in range(len(radar_view.object_list_for_draw)):
+        radar_view.object_list_for_draw[i] = ObjectDrawData(
             object_id=i,
-            Class=object_class[i],  # Random class (0: Unknown, 1: Car, 2: Bicycle, 3: Pedestrian)
-            DataConf=random.randint(50, 100),  # Random confidence value (50-100 for higher confidence)
-            DataLen=30,
-            DataWidth=20,
-            HeadingAng=random.uniform(-180.0, 180.0),  # Random heading angle (-180 to 180 degrees)
-            LatAcc=random.uniform(-2.0, 2.0),  # Random lateral acceleration (-2 to 2 m/s^2)
-            LatPos=latposition[i],  # Lateral position
-            LatVelo=random.uniform(-5.0, 5.0),  # Random lateral velocity (-5 to 5 m/s)
-            LgtAcc=random.uniform(-2.0, 2.0),  # Random longitudinal acceleration (-2 to 2 m/s^2)
-            LgtPos=longposition[i],  # Longitudinal position
-            LgtVelo=longvelo_speed[i],  # Random longitudinal velocity (0 to 10 m/s)
-            ModelInfo=random.randint(0, 10),  # Random model info (0-10)
-            Qly=random.randint(50, 100)  # Random quality value (50-100 for higher quality)
+            class_type=int(object_class[i]),
+            data_conf=random.randint(50, 100),
+            data_len=30.0,
+            data_width=20.0,
+            heading_angle=random.uniform(-180.0, 180.0),
+            lat_acc=random.uniform(-2.0, 2.0),
+            lat_pos=int(latposition[i]),
+            lat_velocity=random.uniform(-5.0, 5.0),
+            lgt_acc=random.uniform(-2.0, 2.0),
+            lgt_pos=int(longposition[i]),
+            lgt_velocity=float(longvelo_speed[i]),
+            model_info=random.randint(0, 10),
+            quality=random.randint(50, 100)
         )
 
 def process_sim_car(main_can_bus_car):
-    EgoMotion_data.Speed = round(random.uniform(30.0, 32.0), 2)
+    """Optimized car simulation with immutable data structures"""
+    global ego_motion_data
     
-    EgoMotion_data.Left_wheel_speed = 0
-    EgoMotion_data.Right_wheel_speed = 0
+    # Create new EgoMotion instance since it's frozen
+    new_speed = round(random.uniform(30.0, 32.0), 2)
+    new_yaw_rate = random.uniform(-5.0, 5.0)
     
-    EgoMotion_data.YawRate = random.uniform(-5.0, 5.0) 
+    ego_motion_data = ego_motion_data.__class__(
+        speed=new_speed,
+        left_wheel_speed=0.0,
+        right_wheel_speed=0.0,
+        yaw_rate=int(new_yaw_rate),
+        lat_acc=ego_motion_data.lat_acc,
+        long_acc=ego_motion_data.long_acc
+    )
     
-    return EgoMotion_data
+    return ego_motion_data
 
-base_speed = 30
-def process_sim_car_speed():
-    global positions
-    for i in range(len(ObjList_VIEW.object_list_for_draw)):
-        #longposition[i] = update_positions(latposition[i],longposition[i])
-        if i % 5 == 0:
-            # Small random walk
-            delta = sum(random.uniform(-2, 2) for _ in range(10))
-            speed = base_speed + delta 
-        elif i % 5 == 1:
-            # Sinusoidal variation
-            speed = base_speed + int(10 * math.sin(i))
-        elif i % 5 == 2:
-            # Pulse-like jumps
-            speed = base_speed + random.choice([-20, -10, 0, 10, 20])
-        elif i % 5 == 3:
-            # Gaussian variation
-            speed = int(random.gauss(base_speed, 5))
-        elif i % 5 == 4:
-            # Linear ramp up/down
-            slope = random.choice([-2, 2])
-            speed = base_speed + slope * i
+base_speed = 30.0
 
-        # Clamp speed to realistic bounds
-        speed = 10#max(0, min(speed, 180))
-        longvelo_speed.append(speed)
-    #print("veh speed update 1 second: ", longvelo_speed)
+def process_sim_car_speed() -> None:
+    """Optimized speed simulation using vectorized numpy operations"""
+    global longvelo_speed
+    
+    # Create speed variations using vectorized operations
+    indices = np.arange(len(radar_view.object_list_for_draw))
+    
+    # Apply different patterns based on index modulo 5
+    speed_variations = np.zeros_like(longvelo_speed)
+    
+    # Pattern 0: Small random walk
+    mask0 = indices % 5 == 0
+    speed_variations[mask0] = np.sum(np.random.uniform(-2, 2, (10, np.sum(mask0))), axis=0)
+    
+    # Pattern 1: Sinusoidal variation
+    mask1 = indices % 5 == 1
+    speed_variations[mask1] = 10 * np.sin(indices[mask1])
+    
+    # Pattern 2: Pulse-like jumps
+    mask2 = indices % 5 == 2
+    speed_variations[mask2] = np.random.choice([-20, -10, 0, 10, 20], size=np.sum(mask2))
+    
+    # Pattern 3: Gaussian variation
+    mask3 = indices % 5 == 3
+    speed_variations[mask3] = np.random.normal(0, 5, size=np.sum(mask3))
+    
+    # Pattern 4: Linear ramp
+    mask4 = indices % 5 == 4
+    slopes = np.random.choice([-2, 2], size=np.sum(mask4))
+    speed_variations[mask4] = slopes * indices[mask4]
+    
+    # Update speeds with clamping
+    longvelo_speed[:] = np.clip(base_speed + speed_variations, 0, 180)
+    
+    # For testing, set to constant value
+    longvelo_speed[:] = 10.0  # Simplified for now

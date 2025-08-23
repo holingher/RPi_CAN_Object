@@ -4,7 +4,6 @@ from pygame import mouse as menu_mouse
 from pygame import event as menu_event
 from pygame import MOUSEBUTTONDOWN
 from pygame import Surface as menu_Surface
-from rx import egomotion_t
 from defines import white
 
 # Checkbox state
@@ -35,10 +34,10 @@ def draw_simple_checkbox(screen: menu_Surface, x, y, size, is_checked, color, ac
     text_rect = text_surface.get_rect(midleft=(x + size + 10, y + size // 2))
     screen.blit(text_surface, text_rect)
     
-def draw_extraInfo(screen: menu_Surface, EgoMotion_data_local: egomotion_t, vehicle_group, scanID):
+def draw_extraInfo(screen: menu_Surface, EgoMotion_data_local, vehicle_group, scanID):
     # display car info
     font = menu_font.Font(menu_font.get_default_font(), 16)
-    text = font.render('Speed: ' + str(EgoMotion_data_local.Speed), True, white)
+    text = font.render('Speed: ' + str(EgoMotion_data_local.speed), True, white)
     text_rect = text.get_rect()
     text_rect.center = (50, screen.get_height() - 40)
     screen.blit(text, text_rect)

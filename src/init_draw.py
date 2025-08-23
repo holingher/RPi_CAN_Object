@@ -8,6 +8,7 @@ from pygame import display
 from pygame import QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN, DOUBLEBUF, SRCALPHA, FULLSCREEN
 from pygame.sprite import Group
 from defines import *
+from rx import ObjectDrawData
 
 ########################################################################################
 def init_draw():
@@ -96,26 +97,26 @@ def init_vehicles(vehicle_group: Group):
     if object_entry and vehicle.id == 30:
         print("Adding vehicle with ID:", object_entry.object_id)
         color = (
-            yellow if object_entry.Class == 0 else # Unknown
-            red if object_entry.Class == 1 else # Car
-            green if object_entry.Class == 2 else # Bicycle
+            yellow if object_entry.class_type == 0 else # Unknown
+            red if object_entry.class_type == 1 else # Car
+            green if object_entry.class_type == 2 else # Bicycle
             gray # Pedestrian
         )
         label = (
-            'Unknown' if object_entry.Class == 0 else
-            'Car' if object_entry.Class == 1 else
-            'Bicycle' if object_entry.Class == 2 else
+            'Unknown' if object_entry.class_type == 0 else
+            'Car' if object_entry.class_type == 1 else
+            'Bicycle' if object_entry.class_type == 2 else
             'Pedestrian'
         )
         vehicle = Vehicle(
             id_object=object_entry.object_id,
             color=color,
-            x=int(object_entry.LatPos),
-            y=int(object_entry.LgtPos),
-            width=object_entry.DataWidth,
-            height=object_entry.DataLen,
-            speed=object_entry.LgtVelo,
-            dataConfidence=object_entry.DataConf,
+            x=int(object_entry.lat_pos),
+            y=int(object_entry.lgt_pos),
+            width=object_entry.data_width,
+            height=object_entry.data_len,
+            speed=object_entry.lgt_velocity,
+            dataConfidence=object_entry.data_conf,
             label=label
         )
         vehicle_group.add(vehicle)
