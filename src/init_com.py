@@ -12,7 +12,7 @@ def init_com():
         print('Loading DBC....')
         
         if(is_raspberrypi()):
-            dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
+            dbc_radar = cantools.db.load_file("database/radar.dbc")
             print('Bring up CAN Tx....')
             os.system("sudo ifconfig can0 down")
             os.system("sudo ifconfig can1 down")
@@ -24,7 +24,7 @@ def init_com():
             can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
         else:
-            dbc_radar = cantools.db.load_file("database/volvo_MRR.dbc")
+            dbc_radar = cantools.db.load_file("database/radar.dbc")
             print('Bring up virtual CAN Tx....')
             can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
             can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
