@@ -2,6 +2,9 @@
 
 A real-time radar object detection and visualization system for Raspberry Pi, featuring CAN bus communication, 2D/3D rendering, and multi-core processing capabilities.
 
+Simulated:
+<img width="1287" height="793" alt="image" src="https://github.com/user-attachments/assets/8f9cbd9f-63d2-4681-8d95-1e880bb0187c" />
+
 ## 🚀 Features
 
 - **Real-time Object Detection**: Simulates and processes radar object data with configurable parameters
