@@ -6,7 +6,7 @@ from pygame import draw as pygame_draw
 from pygame import font as pygame_font
 from pygame import QUIT, SRCALPHA
 from pygame.sprite import Group
-from rx import VIEW_t, object_list_for_draw_t
+from rx import ObjList_VIEW, VIEW_t, object_list_for_draw_t
 from defines import black, white, yellow, gray, red, green
 from defines import EgoVehicle, Vehicle
 from defines import fov_angle, ray_count, ray_color_hit, ray_color_no_hit
@@ -131,12 +131,12 @@ def draw_vehicle(screen: draw_2D_Surface, vehicle: Vehicle):
 
 ########################################################################################
  
-def update_vehicle(screen: draw_2D_Surface, ObjList_VIEW_local:VIEW_t, vehicle_group: Group):
+def update_vehicle(screen: draw_2D_Surface, vehicle_group: Group):
     object_entry: object_list_for_draw_t
     vehicle: Vehicle
     
-    if ObjList_VIEW_local.MsgCntr > 0:
-            for object_entry in ObjList_VIEW_local.object_list_for_draw:
+    if ObjList_VIEW.MsgCntr > 0:
+            for object_entry in ObjList_VIEW.object_list_for_draw:
                 if object_entry.object_id != INVALID_OBJECT_ID:  # Ensure object_id is valid
                     for vehicle in vehicle_group:
                         # Check if the vehicle already exists in the group using object_id

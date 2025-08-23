@@ -1,6 +1,6 @@
 import math
 import random
-from rx import ObjList_VIEW, object_list_for_draw_t, EgoMotion_data
+from rx import ObjList_VIEW, VIEW_t, object_list_for_draw_t, EgoMotion_data
 from defines import *
 
 
@@ -13,7 +13,7 @@ longposition = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 object_class = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 longvelo_speed = [30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30]
 
-def init_process_rx_radar_simulation():
+def init_process_sim_radar():
     EgoMotion_data.Speed = 60.0
 
     for i in range(len(ObjList_VIEW.object_list_for_draw)):
@@ -23,7 +23,7 @@ def init_process_rx_radar_simulation():
         object_class[i] = random.randint(0, 3)
         longvelo_speed[i] = random.uniform(0.0, 10.0)
         
-def process_rx_radar_simulation(radar_dbc, can_bus_radar, can_bus_car):
+def process_sim_radar(radar_dbc, can_bus_radar, can_bus_car):
     global latposition, longposition
 
     # Ensure the object list is initialized
@@ -68,9 +68,8 @@ def process_rx_radar_simulation(radar_dbc, can_bus_radar, can_bus_car):
             ModelInfo=random.randint(0, 10),  # Random model info (0-10)
             Qly=random.randint(50, 100)  # Random quality value (50-100 for higher quality)
         )
-    return ObjList_VIEW
 
-def process_rx_car_simulation(main_can_bus_car):
+def process_sim_car(main_can_bus_car):
     EgoMotion_data.Speed = round(random.uniform(30.0, 32.0), 2)
     
     EgoMotion_data.Left_wheel_speed = 0
@@ -81,7 +80,7 @@ def process_rx_car_simulation(main_can_bus_car):
     return EgoMotion_data
 
 base_speed = 30
-def object_vehicle_speed_simulation():
+def process_sim_car_speed():
     global positions
     for i in range(len(ObjList_VIEW.object_list_for_draw)):
         #longposition[i] = update_positions(latposition[i],longposition[i])

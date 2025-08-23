@@ -1,5 +1,6 @@
 from enum import Enum
 import io
+from multiprocessing import Manager
 import pygame
 import cantools
 
