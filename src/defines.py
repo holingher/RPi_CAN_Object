@@ -7,7 +7,7 @@ import cantools
 INVALID_OBJECT_ID = 30  # Invalid object ID for vehicle
 
 # create the window
-surface_width = 1024
+surface_width = 800
 surface_height = 600
 
 # define screen size

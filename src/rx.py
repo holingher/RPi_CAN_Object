@@ -299,8 +299,6 @@ def process_car_rx(can_bus_car) -> EgoMotion:
 
 # Legacy compatibility aliases for existing code
 list_of_Object_attr = object_attribute_list
-#ObjList_VIEW = radar_view
-#EgoMotion_data = ego_motion_data
 
 # Export optimized functions with legacy names for compatibility
 process_rx_radar = process_radar_rx
