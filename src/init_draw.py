@@ -12,9 +12,8 @@ from rx import ObjectDrawData
 
 ########################################################################################
 def init_draw():
-    distro_name = distro.name()
-    print('Distro_init: ', distro_name)
-    if(distro_name == 'Raspbian GNU/Linux'):
+    print('Distro_init: ', distro.name())
+    if is_raspberrypi():
         # Allow running from ssh
         os.putenv("DISPLAY", ":0")
 
