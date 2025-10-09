@@ -4,7 +4,8 @@ from pygame import mouse as menu_mouse
 from pygame import event as menu_event
 from pygame import MOUSEBUTTONDOWN
 from pygame import Surface as menu_Surface
-from defines import white
+from defines import white, gray, green
+from rx import toggle_can_sniffer, can_sniffer
 
 # Checkbox state
 is_rays_enabled = [True]  # Use a mutable object to allow modification inside the action function
@@ -67,3 +68,27 @@ def draw_exit_button(screen: menu_Surface, x, y, width, height, color, exit_call
                 mouse = menu_mouse.get_pos()
                 if x < mouse[0] < x + width and y < mouse[1] < y + height:
                     exit_callback()
+
+def draw_sniffer_toggle_button(screen: menu_Surface, x, y, width, height, color, label="Toggle Sniffer"):
+    """Draws a CAN sniffer toggle button"""
+    # Draw button rectangle
+    button_color = green if can_sniffer.enabled else gray
+    menu_draw.rect(screen, button_color, (x, y, width, height))
+    menu_draw.rect(screen, white, (x, y, width, height), 2)  # White border
+    
+    # Draw button text
+    font = menu_font.Font(menu_font.get_default_font(), 16)
+    text = font.render(label, True, white)
+    text_rect = text.get_rect(center=(x + width // 2, y + height // 2))
+    screen.blit(text, text_rect)
+    
+    # Check for mouse click
+    mouse_pos = menu_mouse.get_pos()
+    mouse_clicked = False
+    
+    for event in menu_event.get():
+        if event.type == MOUSEBUTTONDOWN:
+            mouse_clicked = True
+    
+    if mouse_clicked and x <= mouse_pos[0] <= x + width and y <= mouse_pos[1] <= y + height:
+        toggle_can_sniffer()

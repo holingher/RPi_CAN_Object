@@ -111,6 +111,30 @@ class ObjectList:
     msg_counter_signal: str
     scan_id_signal: str
     msg_obj_prop: ObjectPairProperties
+    
+@dataclass
+class CanSnifferData:
+    """Container for CAN sniffer display data"""
+    messages: List[str] = field(default_factory=list)
+    max_messages: int = 20
+    enabled: bool = False
+    
+    def add_message(self, arbitration_id: int, data: bytes, timestamp: float = None):
+        """Add a new CAN message to the display buffer"""
+        if not self.enabled:
+            return
+            
+        timestamp_str = f"{time.time():.3f}" if timestamp is None else f"{timestamp:.3f}"
+        data_hex = data.hex().upper() if data else "00"
+        message_str = f"ID: 0x{arbitration_id:03X} | Data: {data_hex} | Time: {timestamp_str}"
+        
+        # Add to front of list and limit size
+        self.messages.insert(0, message_str)
+        if len(self.messages) > self.max_messages:
+            self.messages = self.messages[:self.max_messages]
+
+# Global CAN sniffer instance
+can_sniffer = CanSnifferData()
 
 # Optimized object configuration with type annotations
 OBJECT_CONFIG: Dict[Tuple[int, int], Tuple[int, int, str, str, str]] = {
@@ -204,6 +228,17 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     try:
         if is_raspberrypi():
             message_radar = can_bus_radar.recv(timeout=0.1)
+         # Add message to sniffer regardless of processing
+        if message_radar:
+            can_sniffer.add_message(
+                message_radar.arbitration_id, 
+                message_radar.data, 
+                getattr(message_radar, 'timestamp', None)
+            )
+            
+        # If sniffer is enabled, skip object processing
+        if can_sniffer.enabled:
+            return radar_view
             
         # Quick bounds check before processing
         if not (reference_id <= message_radar.arbitration_id <= max_id):
@@ -270,6 +305,18 @@ def process_car_rx(can_bus_car) -> EgoMotion:
     try:
         if is_raspberrypi():
             message_car = can_bus_car.recv(timeout=0.1)
+        
+        # Add message to sniffer
+        if message_car:
+            can_sniffer.add_message(
+                message_car.arbitration_id, 
+                message_car.data, 
+                getattr(message_car, 'timestamp', None)
+            )
+            
+        # If sniffer is enabled, skip processing
+        if can_sniffer.enabled:
+            return ego_motion_data
             
         # Process vehicle speed
         if message_car.arbitration_id == VEHICLE_SPEED:
@@ -296,6 +343,13 @@ def process_car_rx(can_bus_car) -> EgoMotion:
         return EgoMotion(**{**ego_motion_data.__dict__, **updated_values})
     
     return ego_motion_data
+
+def toggle_can_sniffer():
+    """Toggle CAN sniffer mode"""
+    can_sniffer.enabled = not can_sniffer.enabled
+    if can_sniffer.enabled:
+        can_sniffer.messages.clear()  # Clear old messages when enabling
+    print(f"CAN Sniffer {'enabled' if can_sniffer.enabled else 'disabled'}")
 
 # Legacy compatibility aliases for existing code
 list_of_Object_attr = object_attribute_list
