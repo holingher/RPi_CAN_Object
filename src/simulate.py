@@ -45,9 +45,9 @@ def process_sim_radar(radar_dbc, can_bus_radar, can_bus_car) -> None:
     mask_long_high = longposition > surface_height
     mask_long_low = longposition < 0
     
-    latposition[mask_lat_high] = np.random.randint(200, 1001, size=np.sum(mask_lat_high))
+    latposition[mask_lat_high] = np.random.randint(0, surface_width, size=np.sum(mask_lat_high))
     latposition[mask_lat_low] = 0
-    longposition[mask_long_high] = np.random.randint(100, 601, size=np.sum(mask_long_high))
+    longposition[mask_long_high] = np.random.randint(0, surface_height, size=np.sum(mask_long_high))
     longposition[mask_long_low] = 0
 
     # Update objects in batch

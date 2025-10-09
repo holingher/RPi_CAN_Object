@@ -1,7 +1,7 @@
 from multiprocessing import Process, Event, freeze_support
 from typing import Any, Callable
 import time
-from pygame import QUIT
+from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
 from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx
@@ -50,12 +50,18 @@ def main():
        '''
         # loop
         running = True
+        def exit_callback():
+            nonlocal running
+            running = False
         while running:
             # Check for quit events
             for event in draw_get_events():
                 # Check for quit event
                 if event.type == QUIT:
                     # Exit the program
+                    running = False
+                # Allow closing with ESC key in fullscreen
+                elif event.type == KEYDOWN and hasattr(event, 'key') and event.key == 27:  # 27 is pygame.K_ESCAPE
                     running = False
 
             # simulate object list
@@ -77,10 +83,11 @@ def main():
             
             # Draw own vehicle
             draw_own(main_screen, main_ego_vehicle, main_ego_group)
-            
             # Update data for all vehicles
             update_vehicle(main_screen, main_vehicle_group)
-            #update_vehicle_ai(main_screen, main_vehicle_group)
+            # Draw the exit button (top-right corner, 100x40 size)
+            from menu import draw_exit_button
+            draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, label="Exit")
 
             # Draw the checkbox
             #draw_simple_checkbox(screen, 50, screen.get_height() - 100, 20, is_rays_enabled[0], white, toggle_rays, label="Enable Rays")
@@ -118,4 +125,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+

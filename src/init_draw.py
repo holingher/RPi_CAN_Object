@@ -47,10 +47,11 @@ def init_draw():
     # Set up the clock
     clock = time.Clock()
     
-    if(distro_name == 'Raspbian GNU/Linux'):
+    # Set display flags based on platform
+    if is_raspberrypi():
         flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
     else:
-        flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
+        flags = DOUBLEBUF | SRCALPHA
     # create the screen
     screen = display.set_mode(screen_size, flags, 16)
     # set the application name

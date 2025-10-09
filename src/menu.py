@@ -48,4 +48,22 @@ def draw_extraInfo(screen: menu_Surface, EgoMotion_data_local, vehicle_group, sc
     text_rect = text.get_rect()
     text_rect.center = (110, screen.get_height() - 20)
     screen.blit(text, text_rect)
+
+def draw_exit_button(screen: menu_Surface, x, y, width, height, color, exit_callback, label="Exit"):
+    """Draws an exit button and calls exit_callback when clicked."""
+    # Draw the button rectangle
+    rect = menu_draw.rect(screen, color, (x, y, width, height), border_radius=6)
     
+    # Draw the label text centered in the button
+    font = menu_font.Font(menu_font.get_default_font(), 20)
+    text_surface = font.render(label, True, (0,0,0))
+    text_rect = text_surface.get_rect(center=(x + width // 2, y + height // 2))
+    screen.blit(text_surface, text_rect)
+
+    # Handle click event
+    for event in menu_event.get():
+        if event.type == MOUSEBUTTONDOWN:
+            if rect.collidepoint(event.pos):
+                mouse = menu_mouse.get_pos()
+                if x < mouse[0] < x + width and y < mouse[1] < y + height:
+                    exit_callback()
