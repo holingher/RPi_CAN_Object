@@ -48,9 +48,9 @@ def init_draw():
     clock = time.Clock()
     
     if(distro_name == 'Raspbian GNU/Linux'):
-        flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
+        flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
     else:
-        flags = DOUBLEBUF | SRCALPHA #| FULLSCREEN
+        flags = DOUBLEBUF | SRCALPHA | FULLSCREEN
     # create the screen
     screen = display.set_mode(screen_size, flags, 16)
     # set the application name

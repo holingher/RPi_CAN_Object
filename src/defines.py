@@ -8,7 +8,7 @@ INVALID_OBJECT_ID = 30  # Invalid object ID for vehicle
 
 # create the window
 surface_width = 800
-surface_height = 600
+surface_height = 480
 
 # define screen size
 screen_size = (surface_width, surface_height)
