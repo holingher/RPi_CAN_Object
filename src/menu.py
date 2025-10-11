@@ -13,6 +13,10 @@ is_rays_enabled = [True]  # Use a mutable object to allow modification inside th
 # Screen mode state
 is_can_screen_enabled = [False]  # Toggle between main screen and CAN data screen
 
+# CAN screen pause functionality
+is_can_screen_paused = [False]  # Toggle between paused and live mode
+paused_messages = []  # Store messages when paused
+
 # Timestamp optimization variables
 base_timestamp = None
 last_timestamp_display = ""
@@ -27,12 +31,27 @@ def toggle_can_screen():
     if is_can_screen_enabled[0] and not can_sniffer.enabled:
         toggle_can_sniffer()
 
+def toggle_can_screen_pause():
+    """Toggle pause state of CAN screen"""
+    global paused_messages
+    is_can_screen_paused[0] = not is_can_screen_paused[0]
+    
+    if is_can_screen_paused[0]:
+        # When pausing, capture current messages
+        paused_messages = can_sniffer.messages.copy() if hasattr(can_sniffer, 'messages') else []
+    else:
+        # When unpausing, clear paused messages to show live data
+        paused_messages = []
+
 def handle_swipe_events(events):
     """
-    Handle swipe gestures to switch between screens
+    Handle swipe gestures to switch between screens and keyboard events for pause
     Returns True if a swipe was detected and handled
     """
+    from pygame import KEYDOWN, K_SPACE
+    
     for event in events:
+        # Handle swipe gestures
         swipe_direction = swipe_detector.handle_event(event)
         if swipe_direction == 'left':
             # Swipe left: go to CAN screen
@@ -43,6 +62,13 @@ def handle_swipe_events(events):
             # Swipe right: go to main screen
             if is_can_screen_enabled[0]:
                 toggle_can_screen()
+                return True
+        
+        # Handle keyboard events for pause functionality
+        elif event.type == KEYDOWN:
+            if event.key == K_SPACE and is_can_screen_enabled[0]:
+                # Spacebar: toggle pause when on CAN screen
+                toggle_can_screen_pause()
                 return True
     return False
         
@@ -173,9 +199,12 @@ def draw_can_data_screen(screen: menu_Surface):
     # Fill screen with black background
     screen.fill(black)
     
-    # Draw title
+    # Draw title with pause indication
     title_font = menu_font.Font(menu_font.get_default_font(), 24)
-    title_text = title_font.render("CAN Message Monitor", True, white)
+    if is_can_screen_paused[0]:
+        title_text = title_font.render("CAN Message Monitor - PAUSED", True, (255, 255, 0))  # Yellow when paused
+    else:
+        title_text = title_font.render("CAN Message Monitor - LIVE", True, (0, 255, 0))  # Green when live
     screen.blit(title_text, (20, 20))
     
     # Draw column headers
@@ -193,11 +222,14 @@ def draw_can_data_screen(screen: menu_Surface):
     data_font = menu_font.Font(menu_font.get_default_font(), 14)
     start_y = header_y + 40
     line_height = 20
-    max_messages = min(len(can_sniffer.messages), (screen.get_height() - start_y - 100) // line_height)
+    
+    # Use paused messages if in pause mode, otherwise use live messages
+    messages_to_display = paused_messages if is_can_screen_paused[0] else can_sniffer.messages
+    max_messages = min(len(messages_to_display), (screen.get_height() - start_y - 100) // line_height)
     
     global base_timestamp, last_timestamp_display
     
-    for i, message in enumerate(can_sniffer.messages[:max_messages]):
+    for i, message in enumerate(messages_to_display[:max_messages]):
         y_pos = start_y + (i * line_height)
         
         # Parse message string to extract components
@@ -225,10 +257,19 @@ def draw_can_data_screen(screen: menu_Surface):
             # If parsing fails, just show the raw message
             screen.blit(data_font.render(message[:80], True, white), (20, y_pos))
     
-    # Draw status info
-    status_y = screen.get_height() - 60
-    status_text = f"Messages captured: {len(can_sniffer.messages)}"
-    screen.blit(data_font.render(status_text, True, white), (20, status_y))
+    # Draw status info with pause indication
+    status_y = screen.get_height() - 80
+    
+    # Show pause status
+    if is_can_screen_paused[0]:
+        pause_status = "PAUSED - Press SPACE to resume"
+        pause_color = (255, 255, 0)  # Yellow for paused state
+        screen.blit(data_font.render(pause_status, True, pause_color), (20, status_y))
+        status_text = f"Showing {len(paused_messages)} paused messages"
+    else:
+        status_text = f"Live: {len(can_sniffer.messages)} messages - Press SPACE to pause"
+    
+    screen.blit(data_font.render(status_text, True, white), (20, status_y + 20))
     
     # Draw swipe instructions
     draw_swipe_instructions(screen, is_can_screen=True)
