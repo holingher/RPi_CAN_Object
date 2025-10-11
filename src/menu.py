@@ -13,6 +13,10 @@ is_rays_enabled = [True]  # Use a mutable object to allow modification inside th
 # Screen mode state
 is_can_screen_enabled = [False]  # Toggle between main screen and CAN data screen
 
+# Timestamp optimization variables
+base_timestamp = None
+last_timestamp_display = ""
+
 def toggle_rays():
     is_rays_enabled[0] = not is_rays_enabled[0]  # Toggle the checkbox state
 
@@ -117,6 +121,38 @@ def draw_can_screen_toggle_button(screen: menu_Surface, x, y, width, height, col
                 if x < mouse[0] < x + width and y < mouse[1] < y + height:
                     toggle_can_screen()
 
+def optimize_timestamp_display(timestamp, is_first_message):
+    """
+    Optimize timestamp display to save space by showing only changing parts.
+    For first message, show full timestamp and set as base.
+    For subsequent messages, show relative time or just the changing decimal part.
+    """
+    global base_timestamp, last_timestamp_display
+    
+    try:
+        current_time = float(timestamp)
+        
+        if is_first_message or base_timestamp is None:
+            # First message or reset - show full timestamp and set as base
+            base_timestamp = int(current_time)  # Store integer part as base
+            last_timestamp_display = f"{current_time:.3f}"
+            return f"T:{current_time:.3f}"
+        else:
+            # Subsequent messages - show relative or optimized format
+            time_diff = current_time - base_timestamp
+            
+            if time_diff < 1000:  # Within reasonable range
+                # Show as offset from base time (e.g., "+1.234")
+                return f"+{time_diff:.3f}"
+            else:
+                # Time jumped significantly, reset base
+                base_timestamp = int(current_time)
+                return f"T:{current_time:.3f}"
+                
+    except (ValueError, TypeError):
+        # If parsing fails, return original timestamp
+        return timestamp
+
 def draw_swipe_instructions(screen: menu_Surface, is_can_screen=False):
     """Draw swipe instructions at the bottom of the screen"""
     instruction_font = menu_font.Font(menu_font.get_default_font(), 16)
@@ -145,10 +181,10 @@ def draw_can_data_screen(screen: menu_Surface):
     # Draw column headers
     header_font = menu_font.Font(menu_font.get_default_font(), 18)
     header_y = 60
-    screen.blit(header_font.render("CAN ID", True, white), (20, header_y))
-    screen.blit(header_font.render("DLC", True, white), (120, header_y))
-    screen.blit(header_font.render("Timestamp", True, white), (170, header_y))
-    screen.blit(header_font.render("Raw Data", True, white), (400, header_y))
+    screen.blit(header_font.render("Time", True, white), (20, header_y))
+    screen.blit(header_font.render("CAN ID", True, white), (120, header_y))
+    screen.blit(header_font.render("DLC", True, white), (220, header_y))
+    screen.blit(header_font.render("Raw Data", True, white), (280, header_y))
     
     # Draw separator line
     menu_draw.line(screen, white, (20, header_y + 25), (screen.get_width() - 20, header_y + 25), 2)
@@ -159,12 +195,14 @@ def draw_can_data_screen(screen: menu_Surface):
     line_height = 20
     max_messages = min(len(can_sniffer.messages), (screen.get_height() - start_y - 100) // line_height)
     
+    global base_timestamp, last_timestamp_display
+    
     for i, message in enumerate(can_sniffer.messages[:max_messages]):
         y_pos = start_y + (i * line_height)
         
         # Parse message string to extract components
         try:
-            # Expected format: "ID: 0x123 | Data: AABBCC | Time: 123.456"
+            # Expected format: "ID: 0x123 | Time: 123.456 | Data: AABBCC"
             parts = message.split(" | ")
             can_id = parts[0].replace("ID: ", "")
             timestamp = parts[1].replace("Time: ", "")
@@ -173,11 +211,14 @@ def draw_can_data_screen(screen: menu_Surface):
             # Calculate DLC from data length
             dlc = len(data_part) // 2 if data_part != "00" else 0
             
-            # Draw the data
-            screen.blit(data_font.render(can_id, True, white), (20, y_pos))
-            screen.blit(data_font.render(str(dlc), True, white), (120, y_pos))
-            screen.blit(data_font.render(timestamp, True, white), (170, y_pos))
-            screen.blit(data_font.render(data_part, True, white), (400, y_pos))
+            # Optimize timestamp display - show only changing parts
+            timestamp_display = optimize_timestamp_display(timestamp, i == 0)
+            
+            # Draw the data with optimized timestamp first
+            screen.blit(data_font.render(timestamp_display, True, white), (20, y_pos))
+            screen.blit(data_font.render(can_id, True, white), (120, y_pos))
+            screen.blit(data_font.render(str(dlc), True, white), (220, y_pos))
+            screen.blit(data_font.render(data_part, True, white), (280, y_pos))
             
         except (IndexError, ValueError):
             # If parsing fails, just show the raw message
