@@ -147,8 +147,8 @@ def draw_can_data_screen(screen: menu_Surface):
     header_y = 60
     screen.blit(header_font.render("CAN ID", True, white), (20, header_y))
     screen.blit(header_font.render("DLC", True, white), (120, header_y))
-    screen.blit(header_font.render("Raw Data", True, white), (170, header_y))
-    screen.blit(header_font.render("Timestamp", True, white), (400, header_y))
+    screen.blit(header_font.render("Timestamp", True, white), (170, header_y))
+    screen.blit(header_font.render("Raw Data", True, white), (400, header_y))
     
     # Draw separator line
     menu_draw.line(screen, white, (20, header_y + 25), (screen.get_width() - 20, header_y + 25), 2)
@@ -167,8 +167,8 @@ def draw_can_data_screen(screen: menu_Surface):
             # Expected format: "ID: 0x123 | Data: AABBCC | Time: 123.456"
             parts = message.split(" | ")
             can_id = parts[0].replace("ID: ", "")
-            data_part = parts[1].replace("Data: ", "")
-            timestamp = parts[2].replace("Time: ", "")
+            timestamp = parts[1].replace("Time: ", "")
+            data_part = parts[2].replace("Data: ", "")
             
             # Calculate DLC from data length
             dlc = len(data_part) // 2 if data_part != "00" else 0
@@ -176,8 +176,8 @@ def draw_can_data_screen(screen: menu_Surface):
             # Draw the data
             screen.blit(data_font.render(can_id, True, white), (20, y_pos))
             screen.blit(data_font.render(str(dlc), True, white), (120, y_pos))
-            screen.blit(data_font.render(data_part, True, white), (170, y_pos))
-            screen.blit(data_font.render(timestamp, True, white), (400, y_pos))
+            screen.blit(data_font.render(timestamp, True, white), (170, y_pos))
+            screen.blit(data_font.render(data_part, True, white), (400, y_pos))
             
         except (IndexError, ValueError):
             # If parsing fails, just show the raw message
