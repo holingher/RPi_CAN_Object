@@ -341,7 +341,7 @@ def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> 
             
         # Decode the message using DBC
         decoded_message = radar_dbc.get_message_by_frame_id(SIGNAL_STATUS_CAN_ID)
-        
+
         # Update radar signal status with decoded values
         radar_signal_status = FlrFlr1canFr96(
             # CRC and Counter (E2E protection)
@@ -432,16 +432,16 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
             )
             
         # If sniffer is enabled, skip processing but still process signal status for system monitoring
-        if can_sniffer.enabled:
+        #if can_sniffer.enabled:
             # Still process signal status frame for radar health monitoring
-            if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-                process_radar_signal_status(radar_dbc, message_radar)
-            return radar_view
+         #   if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+         #       process_radar_signal_status(radar_dbc, message_radar)
+        #    return radar_view
         
         # Process radar signal status frame (CAN ID 0x45)
         if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
             process_radar_signal_status(radar_dbc, message_radar)
-            return radar_view
+        #    return radar_view
             
         # Quick bounds check before processing object data
         if not (reference_id <= message_radar.arbitration_id <= max_id):
