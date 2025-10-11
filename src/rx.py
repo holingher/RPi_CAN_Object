@@ -445,10 +445,10 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
          #       process_radar_signal_status(radar_dbc, message_radar)
         #    return radar_view
         
-        # Process radar signal status frame (CAN ID 0x45)
+        # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
         if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
             process_radar_signal_status(radar_dbc, message_radar)
-        #    return radar_view
+            return radar_view  # Return after processing signal status
             
         # Quick bounds check before processing object data
         if not (reference_id <= message_radar.arbitration_id <= max_id):
