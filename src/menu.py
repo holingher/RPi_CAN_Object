@@ -5,7 +5,7 @@ from pygame import event as menu_event
 from pygame import MOUSEBUTTONDOWN
 from pygame import Surface as menu_Surface
 from defines import white, gray, green, black, get_raspberry_pi_temperature
-from rx import toggle_can_sniffer, can_sniffer
+from rx import toggle_can_sniffer, can_sniffer, radar_signal_status
 from swipe_detector import swipe_detector
 
 def draw_temperature(screen: menu_Surface, font_size=16):
@@ -31,6 +31,7 @@ def draw_temperature(screen: menu_Surface, font_size=16):
 is_rays_enabled = [True]  # Use a mutable object to allow modification inside the action function
 # Screen mode state
 is_can_screen_enabled = [False]  # Toggle between main screen and CAN data screen
+is_radar_status_screen_enabled = [False]  # Toggle for radar status screen
 
 # CAN screen pause functionality
 is_can_screen_paused = [False]  # Toggle between paused and live mode
@@ -49,6 +50,18 @@ def toggle_can_screen():
     # Enable CAN sniffer when switching to CAN screen
     if is_can_screen_enabled[0] and not can_sniffer.enabled:
         toggle_can_sniffer()
+
+def toggle_radar_status_screen():
+    """Toggle radar status screen"""
+    is_radar_status_screen_enabled[0] = not is_radar_status_screen_enabled[0]
+    # If enabling radar status, disable CAN screen
+    if is_radar_status_screen_enabled[0]:
+        is_can_screen_enabled[0] = False
+    
+def return_to_main_screen():
+    """Return to main screen from any other screen"""
+    is_can_screen_enabled[0] = False
+    is_radar_status_screen_enabled[0] = False
 
 def toggle_can_screen_pause():
     """Toggle pause state of CAN screen"""
@@ -73,14 +86,24 @@ def handle_swipe_events(events):
         # Handle swipe gestures
         swipe_direction = swipe_detector.handle_event(event)
         if swipe_direction == 'left':
-            # Swipe left: go to CAN screen
-            if not is_can_screen_enabled[0]:
+            # Swipe left: go to CAN screen (if not already there)
+            if not is_can_screen_enabled[0] and not is_radar_status_screen_enabled[0]:
                 toggle_can_screen()
                 return True
         elif swipe_direction == 'right':
-            # Swipe right: go to main screen
-            if is_can_screen_enabled[0]:
-                toggle_can_screen()
+            # Swipe right: return to main screen
+            if is_can_screen_enabled[0] or is_radar_status_screen_enabled[0]:
+                return_to_main_screen()
+                return True
+        elif swipe_direction == 'up':
+            # Swipe up: go to radar status screen
+            if not is_radar_status_screen_enabled[0]:
+                toggle_radar_status_screen()
+                return True
+        elif swipe_direction == 'down':
+            # Swipe down: return to main screen from radar status
+            if is_radar_status_screen_enabled[0]:
+                return_to_main_screen()
                 return True
         
         # Handle keyboard events for pause functionality
@@ -201,18 +224,18 @@ def optimize_timestamp_display(timestamp, is_first_message):
         # If parsing fails, return original timestamp
         return timestamp
 
-def draw_swipe_instructions(screen: menu_Surface, is_can_screen=False):
+def draw_swipe_instructions(screen: menu_Surface, is_can_screen=False, is_radar_status_screen=False):
     """Draw swipe instructions at the bottom of the screen"""
-    instruction_font = menu_font.Font(menu_font.get_default_font(), 16)
+    instruction_font = menu_font.Font(menu_font.get_default_font(), 14)
     
     if is_can_screen:
-        instruction_text = "← Swipe right to return to main view"
-        color = white
+        instruction_text = "← Swipe right to return to main | ↑ Swipe up for radar status"
+    elif is_radar_status_screen:
+        instruction_text = "↓ Swipe down to return to main | ← Swipe left for CAN data"
     else:
-        instruction_text = "Swipe left to view CAN data →"
-        color = white
+        instruction_text = "← Swipe left: CAN data | ↑ Swipe up: Radar status"
     
-    text_surface = instruction_font.render(instruction_text, True, color)
+    text_surface = instruction_font.render(instruction_text, True, white)
     text_rect = text_surface.get_rect(center=(screen.get_width() // 2, screen.get_height() - 30))
     screen.blit(text_surface, text_rect)
 
@@ -298,3 +321,139 @@ def draw_can_data_screen(screen: menu_Surface):
     
     # Draw swipe instructions
     draw_swipe_instructions(screen, is_can_screen=True)
+
+def draw_radar_status_screen(screen, radar_signal_status, events):
+    """Draw radar status information from FlrFlr1canFr96 dataclass"""
+    from defines import get_raspberry_pi_temperature
+    import pygame
+    
+    # Clear screen
+    screen.fill((0, 0, 0))
+    
+    # Set up fonts
+    title_font = pygame.font.Font(None, 28)
+    header_font = pygame.font.Font(None, 20)
+    data_font = pygame.font.Font(None, 16)
+    
+    # Colors
+    white = (255, 255, 255)
+    green = (0, 255, 0)
+    red = (255, 0, 0)
+    yellow = (255, 255, 0)
+    blue = (100, 149, 237)
+    
+    # Title
+    title_text = title_font.render("Radar Status Monitor", True, white)
+    screen.blit(title_text, (10, 10))
+    
+    y_offset = 45
+    
+    if radar_signal_status is None:
+        # No data available
+        no_data_text = header_font.render("No radar status data available", True, red)
+        screen.blit(no_data_text, (10, y_offset))
+        no_data_info = data_font.render("Waiting for CAN ID 0x45 message...", True, yellow)
+        screen.blit(no_data_info, (10, y_offset + 25))
+    else:
+        # System Status Section
+        status_header = header_font.render("System Status:", True, blue)
+        screen.blit(status_header, (10, y_offset))
+        y_offset += 25
+        
+        # Temperature
+        temp_color = green if radar_signal_status.internal_temp < 80 else (yellow if radar_signal_status.internal_temp < 90 else red)
+        temp_text = data_font.render(f"Temperature: {radar_signal_status.internal_temp}°C", True, temp_color)
+        screen.blit(temp_text, (20, y_offset))
+        y_offset += 18
+        
+        # Radar Status
+        rdr_sts_color = green if radar_signal_status.rdr_sts else red
+        rdr_sts_text = data_font.render(f"Radar Active: {'Yes' if radar_signal_status.rdr_sts else 'No'}", True, rdr_sts_color)
+        screen.blit(rdr_sts_text, (20, y_offset))
+        y_offset += 18
+        
+        # Calibration Status
+        y_offset += 10
+        calib_header = header_font.render("Calibration Status:", True, blue)
+        screen.blit(calib_header, (10, y_offset))
+        y_offset += 25
+        
+        # Calibration states
+        cal_status_color = green if radar_signal_status.cal_sts == 3 else (yellow if radar_signal_status.cal_sts == 2 else red)
+        cal_status_names = {0: "Not Calibrated", 1: "In Progress", 2: "Partially Done", 3: "Calibrated"}
+        cal_status_text = data_font.render(f"Status: {cal_status_names.get(radar_signal_status.cal_sts, 'Unknown')}", True, cal_status_color)
+        screen.blit(cal_status_text, (20, y_offset))
+        y_offset += 18
+        
+        # Calibration progress
+        cal_progress_text = data_font.render(f"Progress: {radar_signal_status.cal_prgrss_sts}", True, white)
+        screen.blit(cal_progress_text, (20, y_offset))
+        y_offset += 18
+        
+        # Software Information
+        y_offset += 10
+        sw_header = header_font.render("Software Information:", True, blue)
+        screen.blit(sw_header, (10, y_offset))
+        y_offset += 25
+        
+        sw_version_text = data_font.render(f"SW Version: {radar_signal_status.sw_vers_major}.{radar_signal_status.sw_vers_minor}", True, white)
+        screen.blit(sw_version_text, (20, y_offset))
+        y_offset += 18
+        
+        if_version_text = data_font.render(f"IF Version: {radar_signal_status.if_vers_major}.{radar_signal_status.if_vers_minor}", True, white)
+        screen.blit(if_version_text, (20, y_offset))
+        y_offset += 18
+        
+        # Diagnostic Information
+        y_offset += 10
+        diag_header = header_font.render("Diagnostics:", True, blue)
+        screen.blit(diag_header, (10, y_offset))
+        y_offset += 25
+        
+        # System Status
+        sys_fail_color = green if not radar_signal_status.sys_fail_flag else red
+        sys_fail_text = data_font.render(f"System Status: {'OK' if not radar_signal_status.sys_fail_flag else 'FAIL'}", True, sys_fail_color)
+        screen.blit(sys_fail_text, (20, y_offset))
+        y_offset += 18
+        
+        # CRC Status
+        crc_text = data_font.render(f"CRC: {radar_signal_status.crc}", True, white)
+        screen.blit(crc_text, (20, y_offset))
+        y_offset += 18
+        
+        # Blockage and Interference
+        blockage_color = green if radar_signal_status.blockage == 0 else (yellow if radar_signal_status.blockage == 1 else red)
+        blockage_names = {0: "None", 1: "Partial", 2: "Full", 3: "Unknown"}
+        blockage_text = data_font.render(f"Blockage: {blockage_names.get(radar_signal_status.blockage, 'Unknown')}", True, blockage_color)
+        screen.blit(blockage_text, (20, y_offset))
+        y_offset += 18
+        
+        interference_color = green if radar_signal_status.interference == 0 else red
+        interference_names = {0: "None", 1: "Low", 2: "High", 3: "Critical"}
+        interference_text = data_font.render(f"Interference: {interference_names.get(radar_signal_status.interference, 'Unknown')}", True, interference_color)
+        screen.blit(interference_text, (20, y_offset))
+        y_offset += 18
+        
+        # Communication Status
+        y_offset += 10
+        comm_header = header_font.render("Communication:", True, blue)
+        screen.blit(comm_header, (10, y_offset))
+        y_offset += 25
+        
+        msg_counter_text = data_font.render(f"Message Counter: {radar_signal_status.counter}", True, white)
+        screen.blit(msg_counter_text, (20, y_offset))
+        y_offset += 18
+        
+        timestamp_text = data_font.render(f"Timestamp: {radar_signal_status.timestamp}", True, white)
+        screen.blit(timestamp_text, (20, y_offset))
+        y_offset += 18
+        
+        # Ego Speed Estimation
+        ego_speed_text = data_font.render(f"Ego Speed Est: {radar_signal_status.ego_spd_est:.2f} m/s", True, white)
+        screen.blit(ego_speed_text, (20, y_offset))
+    
+    # Draw Raspberry Pi temperature
+    draw_temperature(screen, font_size=14)
+    
+    # Draw swipe instructions
+    draw_swipe_instructions(screen, is_radar_status_screen=True)

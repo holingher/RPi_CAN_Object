@@ -133,6 +133,110 @@ class CanSnifferData:
         if len(self.messages) > self.max_messages:
             self.messages = self.messages[:self.max_messages]
 
+@dataclass
+class FlrFlr1canFr96:
+    """
+    Radar Signal Status Frame (CAN ID: 0x45 / 69 decimal)
+    64-byte frame containing radar system status and calibration information
+    """
+    # CRC and Counter (E2E protection)
+    crc: int = 0                           # FLR2SignalStatusCRC: 0|16@1+ (1.0,0.0) [0.0|65535.0] "Unitless"
+    counter: int = 0                       # FLR2SignalStatusCounter: 16|8@1+ (1.0,0.0) [0.0|255.0] "Unitless"
+    
+    # Temperature and Environment
+    internal_temp: float = -40.0           # FLR2SignalStatusInternalTemp: 24|15@1+ (0.01,-40.0) [-40.0|215.0] "degC"
+    timestamp: int = 0                     # FLR2SignalStatusTimeStamp: 56|64@1+ (1.0,0.0) [0.0|0.0] "Milliseconds"
+    
+    # Position and Orientation Offsets
+    y_axis_offs: float = -25.0             # FLR2SignalStatusYAxisOffs: 120|16@1+ (0.00145,-25.0) [-25.0|25.0] "m"
+    z_axis_offs: float = -25.0             # FLR2SignalStatusZAxisOffs: 136|16@1+ (0.00145240648,-25.0) [-25.0|25.0] "m"
+    
+    # Speed and Motion Estimation
+    ego_spd_est: float = 0.0               # FLR2SignalStatusEgoSpdEst: 152|15@1+ (0.00391,0.0) [0.0|125.0] "m/s"
+    ego_yaw_rate_est: float = 0.0          # FLR2SignalStatusEgoYawRateEst: 272|16@1- (0.000244140625,0.0) [-6.0|6.0] "rad/s"
+    
+    # Orientation Angles
+    x_orient_ang: float = -180.0           # FLR2SignalStatusXOrientAng: 200|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg"
+    y_orient_ang: float = -180.0           # FLR2SignalStatusYOrientAng: 216|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg" 
+    z_orient_ang: float = -180.0           # FLR2SignalStatusZOrientAng: 232|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg"
+    
+    # Angle Corrections
+    azi_ang_cor: float = -12.8             # FLR2SignalStatusAziAngCor: 248|8@1+ (0.1,-12.8) [-12.8|12.7] "Deg"
+    ele_ang_cor: float = -12.8             # FLR2SignalStatusEleAngCor: 320|8@1+ (0.1,-12.8) [-12.8|12.7] "Deg"
+    
+    # Position Offset (X-axis)
+    x_axis_offs: float = -25.0             # FLR2SignalStatusXAxisOffs: 288|16@1+ (0.00145204372,-25.0) [-25.0|25.0] "m"
+    
+    # Calibration Status
+    cal_prgrss_sts: int = 0                # FLR2SignalStatusCalPrgrsSts: 304|8@1+ (1.0,0.0) [0.0|255.0] "Unitless"
+    whl_comp_fact: float = 0.92            # FLR2SignalStatusWhlCompFact: 264|5@1+ (0.005,0.92) [0.92|1.075] "Unitless"
+    
+    # Software/Interface Versions
+    if_vers_major: int = 0                 # FLR2SignalStatusIfVersMajor: 212|4@1+ (1.0,0.0) [0.0|15.0] "Unitless"
+    if_vers_minor: int = 0                 # FLR2SignalStatusIfVersMinor: 228|4@1+ (1.0,0.0) [0.0|15.0] "Unitless"
+    sw_vers_major: int = 0                 # FLR2SignalStatusSwVersMajor: 184|8@1+ (1.0,0.0) [0.0|255.0] "Unitless"
+    sw_vers_minor: int = 0                 # FLR2SignalStatusSwVersMinor: 192|8@1+ (1.0,0.0) [0.0|255.0] "Unitless"
+    
+    # Status Information
+    scan_id_sts: int = 0                   # FLR2SignalStatusScanIDSts: 176|8@1+ (1.0,0.0) [0.0|255.0] "Unitless"
+    timestamp_status: bool = False         # FLR2SignalStatusTimeStampStatus: 167|1@1+ (1,0) [0|1] ""
+    
+    # Fault and Error Flags
+    flt_reason: int = 0                    # FLR2SignalStatusFltReason: 168|5@1+ (1,0) [0|31] ""
+    comm_flt_reason: int = 0               # FLR2SignalStatusCommFltReason: 312|7@1+ (1,0) [0|127] ""
+    rdr_int_sts: int = 0                   # FLR2SignalStatusRdrIntSts: 173|3@1+ (1,0) [0|7] ""
+    
+    # System Status Flags (2-bit values)
+    cal_sts: int = 0                       # FLR2SignalStatusCalSts: 244|2@1+ (1,0) [0|3] ""
+    cal_rlt_sts: int = 0                   # FLR2SignalStatusCalRltSts: 260|2@1+ (1,0) [0|3] ""
+    blockage: int = 0                      # FLR2SignalStatusBlockage: 258|2@1+ (1,0) [0|3] ""
+    interference: int = 0                  # FLR2SignalStatusInterference: 256|2@1+ (1,0) [0|3] ""
+    
+    # Single-bit Status Flags  
+    sys_fail_flag: bool = False            # FLR2SignalStatusSysFailFlag: 246|1@1+ (1,0) [0|1] ""
+    rdr_sts: bool = False                  # FLR2SignalStatusRdrSts: 247|1@1+ (1,0) [0|1] ""
+    rdr_trans_act: bool = False            # FLR2SignalStatusRdrTransAct: 263|1@1+ (1,0) [0|1] ""
+    signal_status_ub: bool = False         # FLR2SignalStatus_UB: 335|1@0+ (1,0) [0|1] ""
+
+# Global radar signal status instance
+radar_signal_status = FlrFlr1canFr96()
+
+'''
+BO_ 69 FlrFlr1canFr96 : 64 FLR
+ SG_ FLR2SignalStatus_UB : 335|1@0+ (1,0) [0|1] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusAziAngCor : 248|8@1+ (0.1,-12.8) [-12.8|12.7] "Deg" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusBlockage : 258|2@1+ (1,0) [0|3] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCalPrgrsSts : 304|8@1+ (1.0,0.0) [0.0|255.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCalRltSts : 260|2@1+ (1,0) [0|3] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCalSts : 244|2@1+ (1,0) [0|3] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCommFltReason : 312|7@1+ (1,0) [0|127] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCounter : 16|8@1+ (1.0,0.0) [0.0|255.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusCRC : 0|16@1+ (1.0,0.0) [0.0|65535.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusEgoSpdEst : 152|15@1+ (0.00391,0.0) [0.0|125.0027] "m/s" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusEgoYawRateEst : 272|16@1- (0.000244140625,0.0) [-6.0|6.0] "rad/s" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusEleAngCor : 320|8@1+ (0.1,-12.8) [-12.8|12.7] "Deg" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusFltReason : 168|5@1+ (1,0) [0|31] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusIfVersMajor : 212|4@1+ (1.0,0.0) [0.0|15.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusIfVersMinor : 228|4@1+ (1.0,0.0) [0.0|15.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusInterference : 256|2@1+ (1,0) [0|3] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusInternalTemp : 24|15@1+ (0.01,-40.0) [-40.0|215.0] "degC" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusRdrIntSts : 173|3@1+ (1,0) [0|7] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusRdrSts : 247|1@1+ (1,0) [0|1] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusRdrTransAct : 263|1@1+ (1,0) [0|1] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusScanIDSts : 176|8@1+ (1.0,0.0) [0.0|255.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusSwVersMajor : 184|8@1+ (1.0,0.0) [0.0|255.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusSwVersMinor : 192|8@1+ (1.0,0.0) [0.0|255.0] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusSysFailFlag : 246|1@1+ (1,0) [0|1] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusTimeStamp : 56|64@1+ (1.0,0.0) [0.0|0.0] "Milliseconds" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusTimeStampStatus : 167|1@1+ (1,0) [0|1] "" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusWhlCompFact : 264|5@1+ (0.005,0.92) [0.92|1.075] "Unitless" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusXAxisOffs : 288|16@1+ (0.00145204372,-25.0) [-25.0|25.001125498200004] "m" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusXOrientAng : 200|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusYAxisOffs : 120|16@1+ (0.00145,-25.0) [-25.0|25.000349999999997] "m" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusYOrientAng : 216|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusZAxisOffs : 136|16@1+ (0.00145240648,-25.0) [-25.0|25.00054548048] "m" FLRdpHPA,FLRdpHPB
+ SG_ FLR2SignalStatusZOrientAng : 232|12@1+ (0.1,-180.0) [-180.0|180.0] "Deg" FLRdpHPA,FLRdpHPB
+ '''
 # Global CAN sniffer instance
 can_sniffer = CanSnifferData()
 
@@ -215,6 +319,96 @@ def update_object_data(decoded_message: database.Message, obj_prop: ObjectProper
         quality=decoded_message.get_signal_by_name(obj_prop.quality_signal)
     )
 
+def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> FlrFlr1canFr96:
+    """
+    Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
+    Decodes FlrFlr1canFr96 frame and updates global radar_signal_status
+    """
+    global radar_signal_status
+    
+    # CAN ID for FlrFlr1canFr96 frame
+    SIGNAL_STATUS_CAN_ID = 0x45  # 69 decimal
+    
+    try:
+        # Check if this is the signal status frame
+        if message_radar.arbitration_id != SIGNAL_STATUS_CAN_ID:
+            return radar_signal_status
+            
+        # E2E protection check (assuming E2E data ID, adjust if needed)
+        if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=0x8D8):
+            print(f'E2E protection failed for signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}')
+            return radar_signal_status
+            
+        # Decode the message using DBC
+        decoded_message = radar_dbc.get_message_by_frame_id(SIGNAL_STATUS_CAN_ID)
+        
+        # Update radar signal status with decoded values
+        radar_signal_status = FlrFlr1canFr96(
+            # CRC and Counter (E2E protection)
+            crc=decoded_message.get_signal_by_name('FLR2SignalStatusCRC'),
+            counter=decoded_message.get_signal_by_name('FLR2SignalStatusCounter'),
+            
+            # Temperature and Environment
+            internal_temp=decoded_message.get_signal_by_name('FLR2SignalStatusInternalTemp'),
+            timestamp=decoded_message.get_signal_by_name('FLR2SignalStatusTimeStamp'),
+            
+            # Position and Orientation Offsets
+            y_axis_offs=decoded_message.get_signal_by_name('FLR2SignalStatusYAxisOffs'),
+            z_axis_offs=decoded_message.get_signal_by_name('FLR2SignalStatusZAxisOffs'),
+            x_axis_offs=decoded_message.get_signal_by_name('FLR2SignalStatusXAxisOffs'),
+            
+            # Speed and Motion Estimation
+            ego_spd_est=decoded_message.get_signal_by_name('FLR2SignalStatusEgoSpdEst'),
+            ego_yaw_rate_est=decoded_message.get_signal_by_name('FLR2SignalStatusEgoYawRateEst'),
+            
+            # Orientation Angles
+            x_orient_ang=decoded_message.get_signal_by_name('FLR2SignalStatusXOrientAng'),
+            y_orient_ang=decoded_message.get_signal_by_name('FLR2SignalStatusYOrientAng'),
+            z_orient_ang=decoded_message.get_signal_by_name('FLR2SignalStatusZOrientAng'),
+            
+            # Angle Corrections
+            azi_ang_cor=decoded_message.get_signal_by_name('FLR2SignalStatusAziAngCor'),
+            ele_ang_cor=decoded_message.get_signal_by_name('FLR2SignalStatusEleAngCor'),
+            
+            # Calibration Status
+            cal_prgrss_sts=decoded_message.get_signal_by_name('FLR2SignalStatusCalPrgrsSts'),
+            whl_comp_fact=decoded_message.get_signal_by_name('FLR2SignalStatusWhlCompFact'),
+            
+            # Software/Interface Versions
+            if_vers_major=decoded_message.get_signal_by_name('FLR2SignalStatusIfVersMajor'),
+            if_vers_minor=decoded_message.get_signal_by_name('FLR2SignalStatusIfVersMinor'),
+            sw_vers_major=decoded_message.get_signal_by_name('FLR2SignalStatusSwVersMajor'),
+            sw_vers_minor=decoded_message.get_signal_by_name('FLR2SignalStatusSwVersMinor'),
+            
+            # Status Information
+            scan_id_sts=decoded_message.get_signal_by_name('FLR2SignalStatusScanIDSts'),
+            timestamp_status=bool(decoded_message.get_signal_by_name('FLR2SignalStatusTimeStampStatus')),
+            
+            # Fault and Error Flags
+            flt_reason=decoded_message.get_signal_by_name('FLR2SignalStatusFltReason'),
+            comm_flt_reason=decoded_message.get_signal_by_name('FLR2SignalStatusCommFltReason'),
+            rdr_int_sts=decoded_message.get_signal_by_name('FLR2SignalStatusRdrIntSts'),
+            
+            # System Status Flags (2-bit values)
+            cal_sts=decoded_message.get_signal_by_name('FLR2SignalStatusCalSts'),
+            cal_rlt_sts=decoded_message.get_signal_by_name('FLR2SignalStatusCalRltSts'),
+            blockage=decoded_message.get_signal_by_name('FLR2SignalStatusBlockage'),
+            interference=decoded_message.get_signal_by_name('FLR2SignalStatusInterference'),
+            
+            # Single-bit Status Flags
+            sys_fail_flag=bool(decoded_message.get_signal_by_name('FLR2SignalStatusSysFailFlag')),
+            rdr_sts=bool(decoded_message.get_signal_by_name('FLR2SignalStatusRdrSts')),
+            rdr_trans_act=bool(decoded_message.get_signal_by_name('FLR2SignalStatusRdrTransAct')),
+            signal_status_ub=bool(decoded_message.get_signal_by_name('FLR2SignalStatus_UB'))
+        )
+        
+        print(f'Processed signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}: Temp={radar_signal_status.internal_temp:.1f}°C, Counter={radar_signal_status.counter}')
+        
+    except Exception as e:
+        print(f'Error processing radar signal status: {e}')
+    
+    return radar_signal_status
+
 def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     """Optimized radar message processing with improved error handling"""
     global message_radar
@@ -224,6 +418,7 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     
     reference_id = object_attribute_list[0].arbitration_id
     max_id = object_attribute_list[-1].arbitration_id
+    SIGNAL_STATUS_CAN_ID = 0x45  # 69 decimal - FlrFlr1canFr96
 
     try:
         if is_raspberrypi():
@@ -236,11 +431,19 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
                 getattr(message_radar, 'timestamp', None)
             )
             
-        # If sniffer is enabled, skip object processing
+        # If sniffer is enabled, skip processing but still process signal status for system monitoring
         if can_sniffer.enabled:
+            # Still process signal status frame for radar health monitoring
+            if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+                process_radar_signal_status(radar_dbc, message_radar)
+            return radar_view
+        
+        # Process radar signal status frame (CAN ID 0x45)
+        if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+            process_radar_signal_status(radar_dbc, message_radar)
             return radar_view
             
-        # Quick bounds check before processing
+        # Quick bounds check before processing object data
         if not (reference_id <= message_radar.arbitration_id <= max_id):
             return radar_view
             
@@ -357,3 +560,10 @@ list_of_Object_attr = object_attribute_list
 # Export optimized functions with legacy names for compatibility
 process_rx_radar = process_radar_rx
 process_rx_car = process_car_rx
+
+# Export radar signal status for external access
+__all__ = [
+    'radar_view', 'radar_signal_status', 'ego_motion_data', 'can_sniffer',
+    'process_radar_rx', 'process_car_rx', 'process_radar_signal_status',
+    'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion'
+]

@@ -39,20 +39,33 @@ class SwipeDetector:
                     # Calculate swipe distance and time
                     dx = end_pos[0] - self.start_pos[0]
                     dy = end_pos[1] - self.start_pos[1]
-                    distance = abs(dx)
+                    horizontal_distance = abs(dx)
+                    vertical_distance = abs(dy)
                     swipe_time = end_time - self.start_time
                     
-                    # Check if it's a valid swipe (horizontal, fast enough, long enough)
-                    if (distance >= self.min_swipe_distance and 
-                        swipe_time <= self.max_swipe_time and
-                        abs(dy) < distance * 0.5):  # More horizontal than vertical
+                    # Check if it's a valid swipe (fast enough, long enough)
+                    if swipe_time <= self.max_swipe_time:
+                        # Check for horizontal swipe
+                        if (horizontal_distance >= self.min_swipe_distance and 
+                            abs(dy) < horizontal_distance * 0.5):  # More horizontal than vertical
+                            
+                            self.last_swipe_time = current_time
+                            
+                            if dx > 0:
+                                return 'right'
+                            else:
+                                return 'left'
                         
-                        self.last_swipe_time = current_time
-                        
-                        if dx > 0:
-                            return 'right'
-                        else:
-                            return 'left'
+                        # Check for vertical swipe
+                        elif (vertical_distance >= self.min_swipe_distance and 
+                              abs(dx) < vertical_distance * 0.5):  # More vertical than horizontal
+                            
+                            self.last_swipe_time = current_time
+                            
+                            if dy > 0:
+                                return 'down'
+                            else:
+                                return 'up'
                 
                 self.start_pos = None
                 self.start_time = None

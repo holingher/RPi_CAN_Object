@@ -3,11 +3,11 @@ import time
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx
+from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx, radar_signal_status
 from tx import process_tx_radar
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
-from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled, is_can_screen_enabled, draw_can_data_screen, handle_swipe_events, draw_swipe_instructions
+from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled, is_can_screen_enabled, draw_can_data_screen, handle_swipe_events, draw_swipe_instructions, is_radar_status_screen_enabled, draw_radar_status_screen
 from simulate import init_process_sim_radar, process_sim_car, process_sim_radar
 from defines import *
 
@@ -91,6 +91,12 @@ def main():
                 
                 # Draw exit button only on CAN screen
                 draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, events)
+            elif is_radar_status_screen_enabled[0]:
+                # Draw radar status screen
+                draw_radar_status_screen(main_screen, radar_signal_status, events)
+                
+                # Draw exit button only on radar status screen
+                draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, events)
             else:
                 # Fill the screen with a color
                 draw_environment(main_screen)
@@ -117,7 +123,7 @@ def main():
                 draw_extraInfo(main_screen, EgoMotion_data_main, main_vehicle_group, radar_view.scan_id)
                 
                 # Draw swipe instructions
-                draw_swipe_instructions(main_screen, is_can_screen=False)
+                draw_swipe_instructions(main_screen, is_can_screen=False, is_radar_status_screen=False)
 
             # Update the display
             draw_update()  
