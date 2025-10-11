@@ -204,9 +204,10 @@ def draw_can_data_screen(screen: menu_Surface):
         try:
             # Expected format: "ID: 0x123 | Time: 123.456 | Data: AABBCC"
             parts = message.split(" | ")
-            can_id = parts[0].replace("ID: ", "")
-            timestamp = parts[1].replace("Time: ", "")
-            data_part = parts[2].replace("Data: ", "")
+            timestamp = parts[0].replace("Time: ", "")
+            can_id = parts[1].replace("ID: ", "")
+            can_dlc = parts[2].replace("DLC: ", "")
+            data_part = parts[3].replace("Data: ", "")
             
             # Calculate DLC from data length
             dlc = len(data_part) // 2 if data_part != "00" else 0
