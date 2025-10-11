@@ -426,23 +426,27 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     try:
         if is_raspberrypi():
             message_radar = can_bus_radar.recv(timeout=0.1)
-         # Add message to sniffer regardless of processing
-        if message_radar:
-            can_sniffer.add_message(
-                message_radar.arbitration_id, 
-                message_radar.data, 
-                getattr(message_radar, 'timestamp', None)
-            )
+            
+        # Check if message is None (timeout or no message)
+        if message_radar is None:
+            return radar_view
+            
+        # Add message to sniffer regardless of processing
+        can_sniffer.add_message(
+            message_radar.arbitration_id, 
+            message_radar.data, 
+            getattr(message_radar, 'timestamp', None)
+        )
             
         # If sniffer is enabled, skip processing but still process signal status for system monitoring
         if can_sniffer.enabled:
             # Still process signal status frame for radar health monitoring
-            if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+            if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
                 process_radar_signal_status(radar_dbc, message_radar)
             return
         
         # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
-        if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+        if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
             process_radar_signal_status(radar_dbc, message_radar)
             return  # Return after processing signal status
             
@@ -512,13 +516,16 @@ def process_car_rx(can_bus_car) -> EgoMotion:
         if is_raspberrypi():
             message_car = can_bus_car.recv(timeout=0.1)
         
+        # Check if message is None (timeout or no message)
+        if message_car is None:
+            return ego_motion_data
+        
         # Add message to sniffer
-        if message_car:
-            can_sniffer.add_message(
-                message_car.arbitration_id, 
-                message_car.data, 
-                getattr(message_car, 'timestamp', None)
-            )
+        can_sniffer.add_message(
+            message_car.arbitration_id, 
+            message_car.data, 
+            getattr(message_car, 'timestamp', None)
+        )
             
         # If sniffer is enabled, skip processing
         if can_sniffer.enabled:
