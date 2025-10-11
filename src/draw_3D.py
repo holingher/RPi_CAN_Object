@@ -40,7 +40,7 @@ def draw_3d_road(screen: Surface, road_width):
     pygame.draw.line(screen, white, (lane_x_top, 0), (lane_x_bottom, screen.get_height()), 2)
 
 def draw_3d_rays(screen: Surface, ego_vehicle: EgoVehicle):
-    rays = calculate_rays(ego_vehicle)
+    rays = calculate_rays(screen, ego_vehicle)
     for ray_start, ray_end in rays:
         # Scale the ray's endpoint based on its distance
         distance_factor = max(0.1, 1 - (ray_end[1] / screen.get_height()))

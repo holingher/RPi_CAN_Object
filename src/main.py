@@ -1,14 +1,13 @@
-from multiprocessing import Process, Event, freeze_support
-from typing import Any, Callable
+from typing import Callable
 import time
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx, toggle_can_sniffer, can_sniffer
+from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx
 from tx import process_tx_radar
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
-from draw_2D import draw_can_sniffer, draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle, update_vehicle_ai
-from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled
+from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
+from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled, is_can_screen_enabled, draw_can_data_screen, handle_swipe_events, draw_swipe_instructions
 from simulate import init_process_sim_radar, process_sim_car, process_sim_radar
 from defines import *
 
@@ -58,8 +57,14 @@ def main():
             nonlocal running
             running = False
         while running:
+            # Get all events for this frame
+            events = draw_get_events()
+            
+            # Handle swipe gestures first
+            handle_swipe_events(events)
+            
             # Check for quit events
-            for event in draw_get_events():
+            for event in events:
                 # Check for quit event
                 if event.type == QUIT:
                     # Exit the program
@@ -67,36 +72,36 @@ def main():
                 # Allow closing with ESC key in fullscreen
                 elif event.type == KEYDOWN and hasattr(event, 'key') and event.key == 27:  # 27 is pygame.K_ESCAPE
                     running = False
-                # Toggle CAN sniffer with 'S' key
-                elif event.type == KEYDOWN and hasattr(event, 'key') and event.key == ord('s'):
-                    toggle_can_sniffer()
 
             # Set display flags based on platform
             if is_raspberrypi():
-                # Process the RX data (uncomment when needed)
-                process_radar_rx(main_radar_dbc, main_can_bus_radar)
                 process_car_rx(main_can_bus_car)
+                process_tx_radar(main_can_bus_radar)
+                # Process the RX data
+                process_radar_rx(main_radar_dbc, main_can_bus_radar)
             else:
                 # simulate object list
                 process_sim_radar(main_radar_dbc, main_can_bus_radar, main_can_bus_car) 
                 EgoMotion_data_main = process_sim_car(main_can_bus_car)
-
-            # Fill the screen with a color
-            draw_environment(main_screen)
             
-            #draw_3d_road(screen, road_width)
-            #draw_3d_rays(screen, ego_vehicle)
-            # Draw vehicles with 3D scaling
-            #for vehicle in vehicle_group:
-            #    draw_3d_vehicle(screen, vehicle)
-            #    draw_shadow(screen, vehicle)  # Draw shadow for each vehicle
-            
-            
-            # Check if CAN sniffer is enabled
-            if can_sniffer.enabled:
-                # Draw CAN sniffer instead of objects
-                draw_can_sniffer(main_screen)
+            # Check which screen to display
+            if is_can_screen_enabled[0]:
+                # Draw CAN data screen
+                draw_can_data_screen(main_screen)
+                
+                # Draw exit button only on CAN screen
+                draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, events)
             else:
+                # Fill the screen with a color
+                draw_environment(main_screen)
+                
+                #draw_3d_road(main_screen, road_width)
+                #draw_3d_rays(main_screen, main_ego_vehicle)
+                # Draw vehicles with 3D scaling
+                #for vehicle in main_vehicle_group:
+                    #draw_3d_vehicle(main_screen, vehicle)
+                    #draw_shadow(main_screen, vehicle)  # Draw shadow for each vehicle
+
                 # Draw own vehicle
                 draw_own(main_screen, main_ego_vehicle, main_ego_group)
                 # Update data for all vehicles
@@ -104,12 +109,15 @@ def main():
                 # Use the menu state
                 if is_rays_enabled[0]:
                     draw_rays(main_screen, main_ego_vehicle, main_vehicle_group)
-                    
-            # Draw the rays toggle button (top-left corner, 100x40 size)
-            #draw_exit_button(main_screen, 10, 10, 100, 40, white, toggle_rays, label="Toggle Rays")
-            # Draw the exit button (top-right corner, 100x40 size)
-            draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, label="Exit")
-            draw_extraInfo(main_screen, EgoMotion_data_main, main_vehicle_group, radar_view.scan_id)
+                        
+                # Draw the exit button (top-right corner, 100x40 size)
+                draw_exit_button(main_screen, main_screen.get_width() - 110, 10, 100, 40, gray, exit_callback, events)
+
+                # Draw vehicle and radar info
+                draw_extraInfo(main_screen, EgoMotion_data_main, main_vehicle_group, radar_view.scan_id)
+                
+                # Draw swipe instructions
+                draw_swipe_instructions(main_screen, is_can_screen=False)
 
             # Update the display
             draw_update()  
