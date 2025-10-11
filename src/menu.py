@@ -345,17 +345,18 @@ def draw_can_data_screen(screen: menu_Surface):
     draw_swipe_instructions(screen, is_can_screen=True)
 
 def draw_radar_status_screen(screen, radar_signal_status, events):
-    """Draw comprehensive radar status information from FlrFlr1canFr96 dataclass"""
+    """Draw comprehensive radar status information from FlrFlr1canFr96 dataclass optimized for 800x480"""
     from defines import get_raspberry_pi_temperature
     import pygame
     
     # Clear screen
     screen.fill((0, 0, 0))
     
-    # Set up fonts
-    title_font = pygame.font.Font(None, 24)
-    header_font = pygame.font.Font(None, 20)
-    data_font = pygame.font.Font(None, 18)
+    # Set up fonts - smaller for 800x480
+    title_font = pygame.font.Font(None, 28)
+    header_font = pygame.font.Font(None, 24)
+    data_font = pygame.font.Font(None, 20)
+    small_font = pygame.font.Font(None, 20)
     
     # Colors
     white = (255, 255, 255)
@@ -365,224 +366,211 @@ def draw_radar_status_screen(screen, radar_signal_status, events):
     blue = (100, 149, 237)
     orange = (255, 165, 0)
     cyan = (0, 255, 255)
+    gray = (128, 128, 128)
     
-    # Title
-    title_text = title_font.render("Radar Signal Status Monitor (CAN ID: 0x45)", True, white)
-    screen.blit(title_text, (10, 5))
+    # Title - more compact
+    title_text = title_font.render("Radar Status (0x45)", True, white)
+    screen.blit(title_text, (5, 2))
     
-    y_offset = 30
-    col1_x = 10
-    col2_x = 320
-    col3_x = 630
+    # Layout for 800x480: 4 columns with tight spacing
+    y_start = 35
+    col1_x = 5      # E2E & System
+    col2_x = 200    # Calibration & Software  
+    col3_x = 400    # Position & Motion
+    col4_x = 600    # Diagnostics & Faults
+    line_height = 13
     
     if radar_signal_status is None:
         # No data available
         no_data_text = header_font.render("No radar status data available", True, red)
-        screen.blit(no_data_text, (col1_x, y_offset))
+        screen.blit(no_data_text, (col1_x, y_start))
         no_data_info = data_font.render("Waiting for CAN ID 0x45 message...", True, yellow)
-        screen.blit(no_data_info, (col1_x, y_offset + 25))
+        screen.blit(no_data_info, (col1_x, y_start + 25))
     else:
-        # Column 1: E2E Protection & System Status
-        # E2E Protection Header
-        header = header_font.render("E2E Protection & System:", True, blue)
-        screen.blit(header, (col1_x, y_offset))
-        y1 = y_offset + 20
+        # Column 1: E2E & System Status (compact)
+        header1 = header_font.render("E2E & System:", True, blue)
+        screen.blit(header1, (col1_x, y_start))
+        y1 = y_start + 18
         
-        # CRC and Counter
-        crc_text = data_font.render(f"CRC: 0x{radar_signal_status.crc:04X}", True, white)
+        # Compact E2E data
+        crc_text = small_font.render(f"CRC: {radar_signal_status.crc:04X}", True, white)
         screen.blit(crc_text, (col1_x, y1))
-        y1 += 15
+        y1 += line_height
         
-        counter_text = data_font.render(f"Counter: {radar_signal_status.counter}", True, white)
+        counter_text = small_font.render(f"Cnt: {radar_signal_status.counter}", True, white)
         screen.blit(counter_text, (col1_x, y1))
-        y1 += 15
+        y1 += line_height
         
-        # Timestamp
-        timestamp_color = green if radar_signal_status.timestamp_status else yellow
-        timestamp_text = data_font.render(f"Timestamp: {radar_signal_status.timestamp} ms", True, timestamp_color)
-        screen.blit(timestamp_text, (col1_x, y1))
-        y1 += 15
-        
-        ts_status_text = data_font.render(f"TS Status: {'Valid' if radar_signal_status.timestamp_status else 'Invalid'}", True, timestamp_color)
-        screen.blit(ts_status_text, (col1_x, y1))
-        y1 += 20
-        
-        # System Status
+        # System status with compact format
         sys_fail_color = green if not radar_signal_status.sys_fail_flag else red
-        sys_fail_text = data_font.render(f"System Fail: {'No' if not radar_signal_status.sys_fail_flag else 'YES'}", True, sys_fail_color)
-        screen.blit(sys_fail_text, (col1_x, y1))
-        y1 += 15
+        sys_text = small_font.render(f"Sys: {'OK' if not radar_signal_status.sys_fail_flag else 'FAIL'}", True, sys_fail_color)
+        screen.blit(sys_text, (col1_x, y1))
+        y1 += line_height
         
         rdr_sts_color = green if radar_signal_status.rdr_sts else red
-        rdr_sts_text = data_font.render(f"Radar Active: {'Yes' if radar_signal_status.rdr_sts else 'No'}", True, rdr_sts_color)
-        screen.blit(rdr_sts_text, (col1_x, y1))
-        y1 += 15
+        rdr_text = small_font.render(f"Rdr: {'ON' if radar_signal_status.rdr_sts else 'OFF'}", True, rdr_sts_color)
+        screen.blit(rdr_text, (col1_x, y1))
+        y1 += line_height
         
         rdr_trans_color = green if radar_signal_status.rdr_trans_act else yellow
-        rdr_trans_text = data_font.render(f"Transmit Active: {'Yes' if radar_signal_status.rdr_trans_act else 'No'}", True, rdr_trans_color)
-        screen.blit(rdr_trans_text, (col1_x, y1))
-        y1 += 15
+        trans_text = small_font.render(f"TX: {'ON' if radar_signal_status.rdr_trans_act else 'OFF'}", True, rdr_trans_color)
+        screen.blit(trans_text, (col1_x, y1))
+        y1 += line_height
         
-        # Signal Status UB
-        signal_ub_color = green if not radar_signal_status.signal_status_ub else red
-        signal_ub_text = data_font.render(f"Signal UB: {'OK' if not radar_signal_status.signal_status_ub else 'ERROR'}", True, signal_ub_color)
-        screen.blit(signal_ub_text, (col1_x, y1))
-        y1 += 20
-        
-        # Temperature
+        # Temperature with color coding
         temp_color = green if radar_signal_status.internal_temp < 80 else (yellow if radar_signal_status.internal_temp < 90 else red)
-        temp_text = data_font.render(f"Internal Temp: {radar_signal_status.internal_temp:.1f}°C", True, temp_color)
+        temp_text = small_font.render(f"Temp: {radar_signal_status.internal_temp:.0f}°C", True, temp_color)
         screen.blit(temp_text, (col1_x, y1))
-        y1 += 15
+        y1 += line_height
         
-        # Scan ID Status
-        scan_id_text = data_font.render(f"Scan ID Status: {radar_signal_status.scan_id_sts}", True, white)
-        screen.blit(scan_id_text, (col1_x, y1))
+        # Timestamp status
+        ts_color = green if radar_signal_status.timestamp_status else yellow  
+        ts_text = small_font.render(f"TS: {'OK' if radar_signal_status.timestamp_status else 'BAD'}", True, ts_color)
+        screen.blit(ts_text, (col1_x, y1))
+        y1 += line_height
         
-        # Column 2: Calibration & Versions
-        # Calibration Header
-        header2 = header_font.render("Calibration & Software:", True, blue)
-        screen.blit(header2, (col2_x, y_offset))
-        y2 = y_offset + 20
+        signal_ub_color = green if not radar_signal_status.signal_status_ub else red
+        ub_text = small_font.render(f"UB: {'OK' if not radar_signal_status.signal_status_ub else 'ERR'}", True, signal_ub_color)
+        screen.blit(ub_text, (col1_x, y1))
+        y1 += line_height
         
-        # Calibration Status
+        scan_text = small_font.render(f"Scan: {radar_signal_status.scan_id_sts}", True, white)
+        screen.blit(scan_text, (col1_x, y1))
+        
+        # Column 2: Calibration & Software
+        header2 = header_font.render("Calibration:", True, blue)
+        screen.blit(header2, (col2_x, y_start))
+        y2 = y_start + 18
+        
+        # Compact calibration info
         cal_status_color = green if radar_signal_status.cal_sts == 3 else (yellow if radar_signal_status.cal_sts == 2 else red)
-        cal_status_names = {0: "Not Calibrated", 1: "In Progress", 2: "Partially Done", 3: "Calibrated"}
-        cal_status_text = data_font.render(f"Cal Status: {cal_status_names.get(radar_signal_status.cal_sts, 'Unknown')} ({radar_signal_status.cal_sts})", True, cal_status_color)
-        screen.blit(cal_status_text, (col2_x, y2))
-        y2 += 15
+        cal_names = {0: "None", 1: "InProg", 2: "Part", 3: "Done"}
+        cal_text = small_font.render(f"Cal: {cal_names.get(radar_signal_status.cal_sts, 'Unk')}", True, cal_status_color)
+        screen.blit(cal_text, (col2_x, y2))
+        y2 += line_height
         
-        # Calibration Result Status
-        cal_result_names = {0: "OK", 1: "Warning", 2: "Error", 3: "Critical"}
         cal_result_color = green if radar_signal_status.cal_rlt_sts == 0 else (yellow if radar_signal_status.cal_rlt_sts == 1 else red)
-        cal_result_text = data_font.render(f"Cal Result: {cal_result_names.get(radar_signal_status.cal_rlt_sts, 'Unknown')} ({radar_signal_status.cal_rlt_sts})", True, cal_result_color)
-        screen.blit(cal_result_text, (col2_x, y2))
-        y2 += 15
+        cal_result_names = {0: "OK", 1: "Warn", 2: "Err", 3: "Crit"}
+        result_text = small_font.render(f"Res: {cal_result_names.get(radar_signal_status.cal_rlt_sts, 'Unk')}", True, cal_result_color)
+        screen.blit(result_text, (col2_x, y2))
+        y2 += line_height
         
-        # Calibration Progress
-        cal_progress_text = data_font.render(f"Cal Progress: {radar_signal_status.cal_prgrss_sts}", True, white)
-        screen.blit(cal_progress_text, (col2_x, y2))
-        y2 += 15
+        prog_text = small_font.render(f"Prog: {radar_signal_status.cal_prgrss_sts}", True, white)
+        screen.blit(prog_text, (col2_x, y2))
+        y2 += line_height
         
-        # Wheel Compensation Factor
-        whl_comp_text = data_font.render(f"Wheel Comp: {radar_signal_status.whl_comp_fact:.3f}", True, white)
-        screen.blit(whl_comp_text, (col2_x, y2))
-        y2 += 20
+        wheel_text = small_font.render(f"WhlF: {radar_signal_status.whl_comp_fact:.2f}", True, white)
+        screen.blit(wheel_text, (col2_x, y2))
+        y2 += line_height + 3
         
-        # Software Versions
-        sw_version_text = data_font.render(f"SW Version: {radar_signal_status.sw_vers_major}.{radar_signal_status.sw_vers_minor}", True, cyan)
-        screen.blit(sw_version_text, (col2_x, y2))
-        y2 += 15
+        # Software versions
+        sw_text = small_font.render(f"SW: {radar_signal_status.sw_vers_major}.{radar_signal_status.sw_vers_minor}", True, cyan)
+        screen.blit(sw_text, (col2_x, y2))
+        y2 += line_height
         
-        if_version_text = data_font.render(f"IF Version: {radar_signal_status.if_vers_major}.{radar_signal_status.if_vers_minor}", True, cyan)
-        screen.blit(if_version_text, (col2_x, y2))
-        y2 += 20
+        if_text = small_font.render(f"IF: {radar_signal_status.if_vers_major}.{radar_signal_status.if_vers_minor}", True, cyan)
+        screen.blit(if_text, (col2_x, y2))
+        y2 += line_height + 3
         
-        # Blockage and Interference
+        # Environment conditions
         blockage_color = green if radar_signal_status.blockage == 0 else (yellow if radar_signal_status.blockage <= 2 else red)
-        blockage_names = {0: "None", 1: "Partial", 2: "Significant", 3: "Full"}
-        blockage_text = data_font.render(f"Blockage: {blockage_names.get(radar_signal_status.blockage, 'Unknown')} ({radar_signal_status.blockage})", True, blockage_color)
-        screen.blit(blockage_text, (col2_x, y2))
-        y2 += 15
+        block_names = {0: "None", 1: "Part", 2: "Sig", 3: "Full"}
+        block_text = small_font.render(f"Blk: {block_names.get(radar_signal_status.blockage, 'Unk')}", True, blockage_color)
+        screen.blit(block_text, (col2_x, y2))
+        y2 += line_height
         
         interference_color = green if radar_signal_status.interference == 0 else (yellow if radar_signal_status.interference <= 2 else red)
-        interference_names = {0: "None", 1: "Low", 2: "Medium", 3: "High"}
-        interference_text = data_font.render(f"Interference: {interference_names.get(radar_signal_status.interference, 'Unknown')} ({radar_signal_status.interference})", True, interference_color)
-        screen.blit(interference_text, (col2_x, y2))
-        y2 += 20
+        int_names = {0: "None", 1: "Low", 2: "Med", 3: "Hi"}
+        int_text = small_font.render(f"Int: {int_names.get(radar_signal_status.interference, 'Unk')}", True, interference_color)
+        screen.blit(int_text, (col2_x, y2))
         
-        # Fault Information
-        fault_header = data_font.render("Fault Information:", True, orange)
-        screen.blit(fault_header, (col2_x, y2))
-        y2 += 15
+        # Column 3: Position & Motion
+        header3 = header_font.render("Position & Motion:", True, blue)
+        screen.blit(header3, (col3_x, y_start))
+        y3 = y_start + 18
         
-        flt_reason_color = green if radar_signal_status.flt_reason == 0 else red
-        flt_reason_text = data_font.render(f"Fault Reason: {radar_signal_status.flt_reason}", True, flt_reason_color)
-        screen.blit(flt_reason_text, (col2_x, y2))
-        y2 += 15
+        # Motion data
+        speed_text = small_font.render(f"Spd: {radar_signal_status.ego_spd_est:.2f}m/s", True, white)
+        screen.blit(speed_text, (col3_x, y3))
+        y3 += line_height
         
-        comm_flt_color = green if radar_signal_status.comm_flt_reason == 0 else red
-        comm_flt_text = data_font.render(f"Comm Fault: {radar_signal_status.comm_flt_reason}", True, comm_flt_color)
-        screen.blit(comm_flt_text, (col2_x, y2))
-        y2 += 15
+        yaw_text = small_font.render(f"Yaw: {radar_signal_status.ego_yaw_rate_est:.3f}r/s", True, white)
+        screen.blit(yaw_text, (col3_x, y3))
+        y3 += line_height + 3
         
-        rdr_int_sts_text = data_font.render(f"Radar Int Status: {radar_signal_status.rdr_int_sts}", True, white)
-        screen.blit(rdr_int_sts_text, (col2_x, y2))
+        # Position offsets (compact)
+        pos_header = small_font.render("Offsets (m):", True, orange)
+        screen.blit(pos_header, (col3_x, y3))
+        y3 += line_height
         
-        # Column 3: Position, Motion & Orientation (if space allows)
-        if screen.get_width() > 800:
-            # Position and Motion Header
-            header3 = header_font.render("Position & Motion:", True, blue)
-            screen.blit(header3, (col3_x, y_offset))
-            y3 = y_offset + 20
-            
-            # Ego Speed and Yaw Rate
-            ego_speed_text = data_font.render(f"Ego Speed: {radar_signal_status.ego_spd_est:.3f} m/s", True, white)
-            screen.blit(ego_speed_text, (col3_x, y3))
-            y3 += 15
-            
-            ego_yaw_text = data_font.render(f"Ego Yaw Rate: {radar_signal_status.ego_yaw_rate_est:.6f} rad/s", True, white)
-            screen.blit(ego_yaw_text, (col3_x, y3))
-            y3 += 20
-            
-            # Position Offsets
-            offset_header = data_font.render("Position Offsets (m):", True, orange)
-            screen.blit(offset_header, (col3_x, y3))
-            y3 += 15
-            
-            x_offs_text = data_font.render(f"X-Axis: {radar_signal_status.x_axis_offs:.3f}", True, white)
-            screen.blit(x_offs_text, (col3_x, y3))
-            y3 += 15
-            
-            y_offs_text = data_font.render(f"Y-Axis: {radar_signal_status.y_axis_offs:.3f}", True, white)
-            screen.blit(y_offs_text, (col3_x, y3))
-            y3 += 15
-            
-            z_offs_text = data_font.render(f"Z-Axis: {radar_signal_status.z_axis_offs:.3f}", True, white)
-            screen.blit(z_offs_text, (col3_x, y3))
-            y3 += 20
-            
-            # Orientation Angles
-            orient_header = data_font.render("Orientation Angles (°):", True, orange)
-            screen.blit(orient_header, (col3_x, y3))
-            y3 += 15
-            
-            x_orient_text = data_font.render(f"X-Orient: {radar_signal_status.x_orient_ang:.1f}", True, white)
-            screen.blit(x_orient_text, (col3_x, y3))
-            y3 += 15
-            
-            y_orient_text = data_font.render(f"Y-Orient: {radar_signal_status.y_orient_ang:.1f}", True, white)
-            screen.blit(y_orient_text, (col3_x, y3))
-            y3 += 15
-            
-            z_orient_text = data_font.render(f"Z-Orient: {radar_signal_status.z_orient_ang:.1f}", True, white)
-            screen.blit(z_orient_text, (col3_x, y3))
-            y3 += 20
-            
-            # Angle Corrections
-            corr_header = data_font.render("Angle Corrections (°):", True, orange)
-            screen.blit(corr_header, (col3_x, y3))
-            y3 += 15
-            
-            azi_corr_text = data_font.render(f"Azimuth: {radar_signal_status.azi_ang_cor:.1f}", True, white)
-            screen.blit(azi_corr_text, (col3_x, y3))
-            y3 += 15
-            
-            ele_corr_text = data_font.render(f"Elevation: {radar_signal_status.ele_ang_cor:.1f}", True, white)
-            screen.blit(ele_corr_text, (col3_x, y3))
-        else:
-            # For smaller screens, show motion data in column 2 below faults
-            y2 += 20
-            motion_header = data_font.render("Motion Data:", True, orange)
-            screen.blit(motion_header, (col2_x, y2))
-            y2 += 15
-            
-            ego_speed_text = data_font.render(f"Ego Speed: {radar_signal_status.ego_spd_est:.2f} m/s", True, white)
-            screen.blit(ego_speed_text, (col2_x, y2))
-            y2 += 15
-            
-            ego_yaw_text = data_font.render(f"Yaw Rate: {radar_signal_status.ego_yaw_rate_est:.4f} rad/s", True, white)
-            screen.blit(ego_yaw_text, (col2_x, y2))
+        x_text = small_font.render(f"X: {radar_signal_status.x_axis_offs:.2f}", True, white)
+        screen.blit(x_text, (col3_x, y3))
+        y3 += line_height
+        
+        y_text = small_font.render(f"Y: {radar_signal_status.y_axis_offs:.2f}", True, white)
+        screen.blit(y_text, (col3_x, y3))
+        y3 += line_height
+        
+        z_text = small_font.render(f"Z: {radar_signal_status.z_axis_offs:.2f}", True, white)
+        screen.blit(z_text, (col3_x, y3))
+        y3 += line_height + 3
+        
+        # Orientation angles (compact)
+        orient_header = small_font.render("Orient (°):", True, orange)
+        screen.blit(orient_header, (col3_x, y3))
+        y3 += line_height
+        
+        x_orient_text = small_font.render(f"X: {radar_signal_status.x_orient_ang:.0f}", True, white)
+        screen.blit(x_orient_text, (col3_x, y3))
+        y3 += line_height
+        
+        y_orient_text = small_font.render(f"Y: {radar_signal_status.y_orient_ang:.0f}", True, white)
+        screen.blit(y_orient_text, (col3_x, y3))
+        y3 += line_height
+        
+        z_orient_text = small_font.render(f"Z: {radar_signal_status.z_orient_ang:.0f}", True, white)
+        screen.blit(z_orient_text, (col3_x, y3))
+        
+        # Column 4: Diagnostics & Faults
+        header4 = header_font.render("Diagnostics:", True, blue)
+        screen.blit(header4, (col4_x, y_start))
+        y4 = y_start + 18
+        
+        # Fault information
+        flt_color = green if radar_signal_status.flt_reason == 0 else red
+        flt_text = small_font.render(f"Flt: {radar_signal_status.flt_reason}", True, flt_color)
+        screen.blit(flt_text, (col4_x, y4))
+        y4 += line_height
+        
+        comm_color = green if radar_signal_status.comm_flt_reason == 0 else red
+        comm_text = small_font.render(f"Comm: {radar_signal_status.comm_flt_reason}", True, comm_color)
+        screen.blit(comm_text, (col4_x, y4))
+        y4 += line_height
+        
+        int_sts_text = small_font.render(f"IntSts: {radar_signal_status.rdr_int_sts}", True, white)
+        screen.blit(int_sts_text, (col4_x, y4))
+        y4 += line_height + 3
+        
+        # Angle corrections
+        corr_header = small_font.render("Corrections (°):", True, orange)
+        screen.blit(corr_header, (col4_x, y4))
+        y4 += line_height
+        
+        azi_text = small_font.render(f"Az: {radar_signal_status.azi_ang_cor:.1f}", True, white)
+        screen.blit(azi_text, (col4_x, y4))
+        y4 += line_height
+        
+        ele_text = small_font.render(f"El: {radar_signal_status.ele_ang_cor:.1f}", True, white)
+        screen.blit(ele_text, (col4_x, y4))
+        y4 += line_height + 3
+        
+        # Timestamp info
+        ts_header = small_font.render("Timing:", True, orange)
+        screen.blit(ts_header, (col4_x, y4))
+        y4 += line_height
+        
+        timestamp_text = small_font.render(f"TS: {radar_signal_status.timestamp}", True, white)
+        screen.blit(timestamp_text, (col4_x, y4))
     
     # Draw Raspberry Pi temperature
     draw_temperature(screen, font_size=14)

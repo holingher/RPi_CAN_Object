@@ -133,6 +133,7 @@ class CanSnifferData:
         if len(self.messages) > self.max_messages:
             self.messages = self.messages[:self.max_messages]
 
+SIGNAL_STATUS_CAN_ID = 0x45  # 69 decimal - FlrFlr1canFr96
 @dataclass
 class FlrFlr1canFr96:
     """
@@ -324,10 +325,6 @@ def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> 
     Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
     Decodes FlrFlr1canFr96 frame and updates global radar_signal_status
     """
-    global radar_signal_status
-    
-    # CAN ID for FlrFlr1canFr96 frame
-    SIGNAL_STATUS_CAN_ID = 0x45  # 69 decimal
     
     try:
         # Check if this is the signal status frame
@@ -425,7 +422,6 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     
     reference_id = object_attribute_list[0].arbitration_id
     max_id = object_attribute_list[-1].arbitration_id
-    SIGNAL_STATUS_CAN_ID = 0x45  # 69 decimal - FlrFlr1canFr96
 
     try:
         if is_raspberrypi():
@@ -439,16 +435,16 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
             )
             
         # If sniffer is enabled, skip processing but still process signal status for system monitoring
-        #if can_sniffer.enabled:
+        if can_sniffer.enabled:
             # Still process signal status frame for radar health monitoring
-         #   if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-         #       process_radar_signal_status(radar_dbc, message_radar)
-        #    return radar_view
+            if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+                process_radar_signal_status(radar_dbc, message_radar)
+            return
         
         # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
         if message_radar and message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
             process_radar_signal_status(radar_dbc, message_radar)
-            return radar_view  # Return after processing signal status
+            return  # Return after processing signal status
             
         # Quick bounds check before processing object data
         if not (reference_id <= message_radar.arbitration_id <= max_id):
