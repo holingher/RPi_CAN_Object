@@ -79,3 +79,19 @@ def is_raspberrypi():
             if 'raspberry pi' in m.read().lower(): return True
     except Exception: pass
     return False
+
+def get_raspberry_pi_temperature():
+    """Get Raspberry Pi internal temperature in Celsius"""
+    try:
+        if is_raspberrypi():
+            with io.open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+                temp_str = f.read().strip()
+                # Temperature is in millidegrees Celsius, convert to degrees
+                temp_celsius = float(temp_str) / 1000.0
+                return temp_celsius
+        else:
+            # Return simulated temperature for non-RPi systems
+            import random
+            return 35.0 + random.uniform(-5.0, 10.0)  # Simulate 30-45°C range
+    except Exception:
+        return None  # Return None if temperature cannot be read

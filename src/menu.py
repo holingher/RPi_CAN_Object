@@ -4,9 +4,28 @@ from pygame import mouse as menu_mouse
 from pygame import event as menu_event
 from pygame import MOUSEBUTTONDOWN
 from pygame import Surface as menu_Surface
-from defines import white, gray, green, black
+from defines import white, gray, green, black, get_raspberry_pi_temperature
 from rx import toggle_can_sniffer, can_sniffer
 from swipe_detector import swipe_detector
+
+def draw_temperature(screen: menu_Surface, font_size=16):
+    """Draw raspberry pi temperature at consistent location (left bottom corner)"""
+    temp = get_raspberry_pi_temperature()
+    if temp is not None:
+        # Choose color based on temperature (green < 60°C, yellow 60-70°C, red > 70°C)
+        if temp < 60:
+            temp_color = green
+        elif temp < 70:
+            temp_color = (255, 255, 0)  # yellow
+        else:
+            temp_color = (255, 0, 0)  # red
+        
+        font = menu_font.Font(menu_font.get_default_font(), font_size)
+        temp_text = font.render(f'CPU: {temp:.1f}°C', True, temp_color)
+        # Position at left bottom corner with some margin
+        temp_rect = temp_text.get_rect()
+        temp_rect.bottomleft = (10, screen.get_height() - 10)
+        screen.blit(temp_text, temp_rect)
 
 # Checkbox state
 is_rays_enabled = [True]  # Use a mutable object to allow modification inside the action function
@@ -99,15 +118,18 @@ def draw_extraInfo(screen: menu_Surface, EgoMotion_data_local, vehicle_group, sc
     font = menu_font.Font(menu_font.get_default_font(), 16)
     text = font.render('Speed: ' + str(EgoMotion_data_local.speed), True, white)
     text_rect = text.get_rect()
-    text_rect.center = (50, screen.get_height() - 40)
+    text_rect.center = (50, screen.get_height() - 60)
     screen.blit(text, text_rect)
     
     # display the objects count
     font = menu_font.Font(menu_font.get_default_font(), 16)
     text = font.render('Nb of objects: ' + str(len(vehicle_group)) + ' ScanID: ' + str(scanID), True, white)
     text_rect = text.get_rect()
-    text_rect.center = (110, screen.get_height() - 20)
+    text_rect.center = (110, screen.get_height() - 40)
     screen.blit(text, text_rect)
+    
+    # display raspberry pi temperature at consistent location
+    draw_temperature(screen, font_size=16)
 
 def draw_exit_button(screen: menu_Surface, x, y, width, height, color, exit_callback, events, label="Exit"):
     """Draws an exit button and calls exit_callback when clicked."""
@@ -270,6 +292,9 @@ def draw_can_data_screen(screen: menu_Surface):
         status_text = f"Live: {len(can_sniffer.messages)} messages - Press SPACE to pause"
     
     screen.blit(data_font.render(status_text, True, white), (20, status_y + 20))
+    
+    # Draw raspberry pi temperature at consistent location (same as main screen)
+    draw_temperature(screen, font_size=14)
     
     # Draw swipe instructions
     draw_swipe_instructions(screen, is_can_screen=True)
