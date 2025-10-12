@@ -320,7 +320,7 @@ def update_object_data(decoded_message: dict, obj_prop: ObjectProperty, index: i
         quality=decoded_message.get(obj_prop.quality_signal, 0)
     )
 
-def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> FlrFlr1canFr96:
+def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> FlrFlr1canFr96:
     """
     Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
     Decodes FlrFlr1canFr96 frame and updates global radar_signal_status
@@ -413,16 +413,45 @@ def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> 
     
     return radar_signal_status
 
-def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
-    """Optimized radar message processing with improved error handling"""
-    global message_radar
-    
+def process_ObjectList_CAN0(radar_dbc: database.Database) -> None:  
     if not object_attribute_list:
         return radar_view
     
     reference_id = object_attribute_list[0].arbitration_id
     max_id = object_attribute_list[-1].arbitration_id
-
+                   
+    # Quick bounds check before processing object data
+    if not (reference_id <= message_radar.arbitration_id <= max_id):
+        return radar_view 
+    
+    # Process matching arbitration ID
+    for entry in object_attribute_list:
+        if entry.arbitration_id == message_radar.arbitration_id:
+            # E2E protection check
+            if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
+                continue
+            
+            # Decode message once
+            decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
+            
+            # Update global message counters
+            radar_view.msg_counter = decoded_message.get(entry.msg_counter_signal, 0)
+            radar_view.scan_id = decoded_message.get(entry.scan_id_signal, 0)
+            
+            # Calculate array index
+            index_entry = entry.arbitration_id - reference_id
+            
+            # Update object data efficiently
+            update_object_data(decoded_message, entry.msg_obj_prop.first_obj_prop, index_entry)
+            update_object_data(decoded_message, entry.msg_obj_prop.second_obj_prop, index_entry + 1)
+            
+            print(f'Processing arbitration_id: 0x{message_radar.arbitration_id:03X}')
+            break
+            
+def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
+    """Optimized radar message processing with improved error handling"""
+    global message_radar
+    
     try:
         if is_raspberrypi():
             message_radar = can_bus_radar.recv(timeout=0.1)
@@ -442,42 +471,12 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
         if can_sniffer.enabled:
             # Still process signal status frame for radar health monitoring
             if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-                process_radar_signal_status(radar_dbc, message_radar)
-            return
-        
-        # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
-        if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-            process_radar_signal_status(radar_dbc, message_radar)
-            return  # Return after processing signal status
-            
-        # Quick bounds check before processing object data
-        if not (reference_id <= message_radar.arbitration_id <= max_id):
-            return radar_view
-            
-        # Process matching arbitration ID
-        for entry in object_attribute_list:
-            if entry.arbitration_id == message_radar.arbitration_id:
-                # E2E protection check
-                if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
-                    continue
-                
-                # Decode message once
-                decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
-                
-                # Update global message counters
-                radar_view.msg_counter = decoded_message.get(entry.msg_counter_signal, 0)
-                radar_view.scan_id = decoded_message.get(entry.scan_id_signal, 0)
-                
-                # Calculate array index
-                index_entry = entry.arbitration_id - reference_id
-                
-                # Update object data efficiently
-                update_object_data(decoded_message, entry.msg_obj_prop.first_obj_prop, index_entry)
-                update_object_data(decoded_message, entry.msg_obj_prop.second_obj_prop, index_entry + 1)
-                
-                print(f'Processing arbitration_id: 0x{message_radar.arbitration_id:03X}')
-                break
-                
+                process_RadarStatus_CAN0(radar_dbc, message_radar)
+                return
+
+        # Process object list frames
+        process_ObjectList_CAN0(radar_dbc)   
+             
     except OSError as e:
         print(f'Radar CAN bus error: {e}')
         # Don't exit, just return current state
@@ -505,7 +504,7 @@ or
 
 https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
 '''
-def process_car_rx(can_bus_car) -> EgoMotion:
+def process_CAN1_rx(can_bus_car) -> EgoMotion:
     """Optimized vehicle CAN message processing"""
     global message_car
     
@@ -565,15 +564,15 @@ def toggle_can_sniffer():
     print(f"CAN Sniffer {'enabled' if can_sniffer.enabled else 'disabled'}")
 
 # Legacy compatibility aliases for existing code
-list_of_Object_attr = object_attribute_list
+#list_of_Object_attr = object_attribute_list
 
 # Export optimized functions with legacy names for compatibility
-process_rx_radar = process_radar_rx
-process_rx_car = process_car_rx
+#process_rx_radar = process_CAN0_rx
+#process_rx_car = process_CAN1_rx
 
 # Export radar signal status for external access
 __all__ = [
     'radar_view', 'radar_signal_status', 'ego_motion_data', 'can_sniffer',
-    'process_radar_rx', 'process_car_rx', 'process_radar_signal_status',
+    'process_CAN0_rx', 'process_CAN1_rx', 'process_RadarStatus_CAN0',
     'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion'
 ]

@@ -164,7 +164,7 @@ def process_240(can_bus_radar:can.BusABC, ts):
             
 ##############################################################
 # process the TX messages to radar
-def process_tx_radar(can_bus_radar:can.BusABC):
+def process_CAN0_tx(can_bus_radar:can.BusABC):
     if can_bus_radar is None:
         print("CAN bus is not initialized.")
         return

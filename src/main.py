@@ -3,8 +3,8 @@ import time
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import radar_view, ego_motion_data, process_radar_rx, process_car_rx, radar_signal_status
-from tx import process_tx_radar
+from rx import radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status
+from tx import process_CAN0_tx
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
 from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled, is_can_screen_enabled, draw_can_data_screen, handle_swipe_events, draw_swipe_instructions, is_radar_status_screen_enabled, draw_radar_status_screen
@@ -43,8 +43,8 @@ def main():
         stop_event_sim_radar = Event()
 
         # Start periodic tasks as processes
-        tx_radar_process = Process(target=periodic_task, args=(60, process_tx_radar, stop_event_tx_radar, main_can_bus_radar))
-        rx_radar_process = Process(target=periodic_task, args=(50, process_rx_radar, stop_event_rx_radar, main_radar_dbc, main_can_bus_radar))
+        tx_radar_process = Process(target=periodic_task, args=(60, process_CAN0_tx, stop_event_tx_radar, main_can_bus_radar))
+        rx_radar_process = Process(target=periodic_task, args=(50, process_CAN0_rx, stop_event_rx_radar, main_radar_dbc, main_can_bus_radar))
         sim_radar_process = Process(target=periodic_task, args=(50, process_sim_radar, stop_event_sim_radar))
 
         tx_radar_process.start()
@@ -75,10 +75,18 @@ def main():
 
             # Set display flags based on platform
             if is_raspberrypi():
-                process_car_rx(main_can_bus_car)
-                process_tx_radar(main_can_bus_radar)
+                ##### CAN1 - Car #####
                 # Process the RX data
-                process_radar_rx(main_radar_dbc, main_can_bus_radar)
+                process_CAN1_rx(main_can_bus_car)
+                # Process the TX data
+                # not required as no data to send
+                #process_CAN1_tx(main_can_bus_car)
+                
+                ##### CAN0 - Radar #####
+                # Process the TX data
+                process_CAN0_tx(main_can_bus_radar)
+                # Process the RX data
+                process_CAN0_rx(main_radar_dbc, main_can_bus_radar)
             else:
                 # simulate object list
                 process_sim_radar(main_radar_dbc, main_can_bus_radar, main_can_bus_car) 
