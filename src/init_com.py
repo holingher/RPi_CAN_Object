@@ -21,22 +21,22 @@ def init_com():
             time.sleep(0.1)
             os.system("sudo ip link set can1 up type can bitrate 500000 dbitrate 2000000 restart-ms 1000 berr-reporting on fd on")
             time.sleep(0.1)
-            can_bus_radar = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
-            can_bus_car = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
+            can_bus_CAN0 = can.interface.Bus(channel='can0', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
+            can_bus_CAN1 = can.interface.Bus(channel='can1', interface='socketcan', bitrate=500000, data_bitrate=2000000, fd=True)
         else:
             dbc_radar = cantools.db.load_file("database/radar.dbc")
             print('Bring up virtual CAN Tx....')
-            can_bus_radar = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
-            can_bus_car = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
-        
-            print(f"CAN bus object: {can_bus_radar}")
+            can_bus_CAN0 = can.interface.Bus(channel='vcan0', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
+            can_bus_CAN1 = can.interface.Bus(channel='vcan1', interface='virtual', bitrate=500000, data_bitrate=2000000, fd=True)
+
+            print(f"CAN bus object: {can_bus_CAN0}")
         time.sleep(0.1)
         print('Ready')
     except OSError as e:
         print(f'Cannot find CAN board: {e}')
         os._exit(0)
     print('Ready')
-    return can_bus_radar, can_bus_car, dbc_radar
+    return can_bus_CAN0, can_bus_CAN1, dbc_radar
 
 ########################################################################################
 def deinit_com():

@@ -30,7 +30,7 @@ def main():
         # Initialize screen and vehicle groups
         main_screen, main_ego_group, main_vehicle_group, main_ego_vehicle = init_draw()
         # Initialize the CAN communication
-        main_can_bus_radar, main_can_bus_car, main_radar_dbc = init_com()
+        main_can_bus_CAN0, main_can_bus_CAN1, main_radar_dbc = init_com()
         
         # Set display flags based on platform
         if not is_raspberrypi():
@@ -77,21 +77,21 @@ def main():
             if is_raspberrypi():
                 ##### CAN1 - Car #####
                 # Process the RX data
-                process_CAN1_rx(main_can_bus_car)
+                process_CAN1_rx(main_can_bus_CAN1)
                 # Process the TX data
                 # not required as no data to send
-                #process_CAN1_tx(main_can_bus_car)
-                
+                #process_CAN1_tx(main_can_bus_CAN1)
+
                 ##### CAN0 - Radar #####
                 # Process the TX data
-                process_CAN0_tx(main_can_bus_radar)
+                process_CAN0_tx(main_can_bus_CAN0)
                 # Process the RX data
-                process_CAN0_rx(main_radar_dbc, main_can_bus_radar)
+                process_CAN0_rx(main_radar_dbc, main_can_bus_CAN0)
             else:
                 # simulate object list
-                process_sim_radar(main_radar_dbc, main_can_bus_radar, main_can_bus_car) 
-                EgoMotion_data_main = process_sim_car(main_can_bus_car)
-            
+                process_sim_radar(main_radar_dbc, main_can_bus_CAN0, main_can_bus_CAN1) 
+                EgoMotion_data_main = process_sim_car(main_can_bus_CAN1)
+
             # Check which screen to display
             if is_can_screen_enabled[0]:
                 # Draw CAN data screen
