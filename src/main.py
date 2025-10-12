@@ -56,6 +56,7 @@ def main():
         def exit_callback():
             nonlocal running
             running = False
+
         while running:
             # Get all events for this frame
             events = draw_get_events()
@@ -86,7 +87,7 @@ def main():
                 # Process the TX data
                 process_CAN0_tx(main_can_bus_CAN0)
                 # Process the RX data
-                process_CAN0_rx(main_radar_dbc, main_can_bus_CAN0)
+                process_CAN0_rx(main_radar_dbc, main_can_bus_CAN1)
             else:
                 # simulate object list
                 process_sim_radar(main_radar_dbc, main_can_bus_CAN0, main_can_bus_CAN1) 

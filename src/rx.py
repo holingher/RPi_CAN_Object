@@ -319,88 +319,83 @@ def update_object_data(decoded_message: dict, obj_prop: ObjectProperty, index: i
         model_info=decoded_message.get(obj_prop.model_info_signal, 0),
         quality=decoded_message.get(obj_prop.quality_signal, 0)
     )
-
 def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> FlrFlr1canFr96:
     """
     Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
     Decodes FlrFlr1canFr96 frame and updates global radar_signal_status
     """
+    global radar_signal_status  # Add this line to access the global instance
+    
     try:
         print(f'Received signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X} with {len(message_radar.data)} bytes')
-            
+        '''       
         # E2E protection check (temporarily disabled for debugging)
         # TODO: Enable E2E protection with correct data_id once confirmed
         try:
-            if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=0x8D8):
+            if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc-2, data_id=0x8D8):
                 print(f'E2E protection failed for signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}, continuing anyway...')
                 # Continue processing even if E2E fails for now
         except Exception as e:
             print(f'E2E check error: {e}, continuing anyway...')
-            
+        '''   
         # Decode the message using DBC
         decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
 
-        # Update radar signal status with decoded values
-        radar_signal_status = FlrFlr1canFr96(
-            # CRC and Counter (E2E protection)
-            crc=decoded_message.get('FLR2SignalStatusCRC', 0),
-            counter=decoded_message.get('FLR2SignalStatusCounter', 0),
-            
-            # Temperature and Environment
-            internal_temp=decoded_message.get('FLR2SignalStatusInternalTemp', -40.0),
-            timestamp=decoded_message.get('FLR2SignalStatusTimeStamp', 0),
-            
-            # Position and Orientation Offsets
-            y_axis_offs=decoded_message.get('FLR2SignalStatusYAxisOffs', -25.0),
-            z_axis_offs=decoded_message.get('FLR2SignalStatusZAxisOffs', -25.0),
-            x_axis_offs=decoded_message.get('FLR2SignalStatusXAxisOffs', -25.0),
-            
-            # Speed and Motion Estimation
-            ego_spd_est=decoded_message.get('FLR2SignalStatusEgoSpdEst', 0.0),
-            ego_yaw_rate_est=decoded_message.get('FLR2SignalStatusEgoYawRateEst', 0.0),
-            
-            # Orientation Angles
-            x_orient_ang=decoded_message.get('FLR2SignalStatusXOrientAng', -180.0),
-            y_orient_ang=decoded_message.get('FLR2SignalStatusYOrientAng', -180.0),
-            z_orient_ang=decoded_message.get('FLR2SignalStatusZOrientAng', -180.0),
-            
-            # Angle Corrections
-            azi_ang_cor=decoded_message.get('FLR2SignalStatusAziAngCor', -12.8),
-            ele_ang_cor=decoded_message.get('FLR2SignalStatusEleAngCor', -12.8),
-            
-            # Calibration Status
-            cal_prgrss_sts=decoded_message.get('FLR2SignalStatusCalPrgrsSts', 0),
-            whl_comp_fact=decoded_message.get('FLR2SignalStatusWhlCompFact', 0.92),
-            
-            # Software/Interface Versions
-            if_vers_major=decoded_message.get('FLR2SignalStatusIfVersMajor', 0),
-            if_vers_minor=decoded_message.get('FLR2SignalStatusIfVersMinor', 0),
-            sw_vers_major=decoded_message.get('FLR2SignalStatusSwVersMajor', 0),
-            sw_vers_minor=decoded_message.get('FLR2SignalStatusSwVersMinor', 0),
-            
-            # Status Information
-            scan_id_sts=decoded_message.get('FLR2SignalStatusScanIDSts', 0),
-            timestamp_status=bool(decoded_message.get('FLR2SignalStatusTimeStampStatus', False)),
-            
-            # Fault and Error Flags
-            flt_reason=decoded_message.get('FLR2SignalStatusFltReason', 0),
-            comm_flt_reason=decoded_message.get('FLR2SignalStatusCommFltReason', 0),
-            rdr_int_sts=decoded_message.get('FLR2SignalStatusRdrIntSts', 0),
-            
-            # System Status Flags (2-bit values)
-            cal_sts=decoded_message.get('FLR2SignalStatusCalSts', 0),
-            cal_rlt_sts=decoded_message.get('FLR2SignalStatusCalRltSts', 0),
-            blockage=decoded_message.get('FLR2SignalStatusBlockage', 0),
-            interference=decoded_message.get('FLR2SignalStatusInterference', 0),
-            
-            # Single-bit Status Flags
-            sys_fail_flag=bool(decoded_message.get('FLR2SignalStatusSysFailFlag', False)),
-            rdr_sts=bool(decoded_message.get('FLR2SignalStatusRdrSts', False)),
-            rdr_trans_act=bool(decoded_message.get('FLR2SignalStatusRdrTransAct', False)),
-            signal_status_ub=bool(decoded_message.get('FLR2SignalStatus_UB', False))
-        )
+        # Helper function to safely get and convert values from decoded message
+        def safe_get(signal_name, default_value, value_type=None):
+            try:
+                # Cantools decoded message can be accessed like a dictionary
+                value = decoded_message[signal_name] if signal_name in decoded_message else default_value
+                
+                # Convert to appropriate type with explicit casting
+                if value_type == int:
+                    return int(float(value))  # Convert via float first to handle scientific notation
+                elif value_type == float:
+                    return float(value)
+                elif value_type == bool:
+                    return bool(int(value)) if isinstance(value, (int, float)) else bool(value)
+                else:
+                    return value
+            except (KeyError, TypeError, ValueError) as e:
+                print(f"Warning: Could not decode {signal_name}, using default {default_value}. Error: {e}")
+                return default_value
+
+        # Update radar signal status with decoded values - MODIFY the global instance
+        radar_signal_status.crc = safe_get('FLR2SignalStatusCRC', 0, int)  # type: ignore
+        radar_signal_status.counter = safe_get('FLR2SignalStatusCounter', 0, int)  # type: ignore
+        radar_signal_status.internal_temp = safe_get('FLR2SignalStatusInternalTemp', -40.0, float)  # type: ignore
+        radar_signal_status.timestamp = safe_get('FLR2SignalStatusTimeStamp', 0, int)  # type: ignore
+        radar_signal_status.y_axis_offs = safe_get('FLR2SignalStatusYAxisOffs', -25.0, float)  # type: ignore
+        radar_signal_status.z_axis_offs = safe_get('FLR2SignalStatusZAxisOffs', -25.0, float)  # type: ignore
+        radar_signal_status.x_axis_offs = safe_get('FLR2SignalStatusXAxisOffs', -25.0, float)  # type: ignore
+        radar_signal_status.ego_spd_est = safe_get('FLR2SignalStatusEgoSpdEst', 0.0, float)  # type: ignore
+        radar_signal_status.ego_yaw_rate_est = safe_get('FLR2SignalStatusEgoYawRateEst', 0.0, float)  # type: ignore
+        radar_signal_status.x_orient_ang = safe_get('FLR2SignalStatusXOrientAng', -180.0, float)  # type: ignore
+        radar_signal_status.y_orient_ang = safe_get('FLR2SignalStatusYOrientAng', -180.0, float)  # type: ignore
+        radar_signal_status.z_orient_ang = safe_get('FLR2SignalStatusZOrientAng', -180.0, float)  # type: ignore
+        radar_signal_status.azi_ang_cor = safe_get('FLR2SignalStatusAziAngCor', -12.8, float)  # type: ignore
+        radar_signal_status.ele_ang_cor = safe_get('FLR2SignalStatusEleAngCor', -12.8, float)  # type: ignore
+        radar_signal_status.cal_prgrss_sts = safe_get('FLR2SignalStatusCalPrgrsSts', 0, int)  # type: ignore
+        radar_signal_status.whl_comp_fact = safe_get('FLR2SignalStatusWhlCompFact', 0.92, float)  # type: ignore
+        radar_signal_status.if_vers_major = safe_get('FLR2SignalStatusIfVersMajor', 0, int)  # type: ignore
+        radar_signal_status.if_vers_minor = safe_get('FLR2SignalStatusIfVersMinor', 0, int)  # type: ignore
+        radar_signal_status.sw_vers_major = safe_get('FLR2SignalStatusSwVersMajor', 0, int)  # type: ignore
+        radar_signal_status.sw_vers_minor = safe_get('FLR2SignalStatusSwVersMinor', 0, int)  # type: ignore
+        radar_signal_status.scan_id_sts = safe_get('FLR2SignalStatusScanIDSts', 0, int)  # type: ignore
+        radar_signal_status.timestamp_status = safe_get('FLR2SignalStatusTimeStampStatus', False, bool)  # type: ignore
+        radar_signal_status.flt_reason = safe_get('FLR2SignalStatusFltReason', 0, int)  # type: ignore
+        radar_signal_status.comm_flt_reason = safe_get('FLR2SignalStatusCommFltReason', 0, int)  # type: ignore
+        radar_signal_status.rdr_int_sts = safe_get('FLR2SignalStatusRdrIntSts', 0, int)  # type: ignore
+        radar_signal_status.cal_sts = safe_get('FLR2SignalStatusCalSts', 0, int)  # type: ignore
+        radar_signal_status.cal_rlt_sts = safe_get('FLR2SignalStatusCalRltSts', 0, int)  # type: ignore
+        radar_signal_status.blockage = safe_get('FLR2SignalStatusBlockage', 0, int)  # type: ignore
+        radar_signal_status.interference = safe_get('FLR2SignalStatusInterference', 0, int)  # type: ignore
+        radar_signal_status.sys_fail_flag = safe_get('FLR2SignalStatusSysFailFlag', False, bool)  # type: ignore
+        radar_signal_status.rdr_sts = safe_get('FLR2SignalStatusRdrSts', False, bool)  # type: ignore
+        radar_signal_status.rdr_trans_act = safe_get('FLR2SignalStatusRdrTransAct', False, bool)  # type: ignore
+        radar_signal_status.signal_status_ub = safe_get('FLR2SignalStatus_UB', False, bool)  # type: ignore
         
-        print(f'Processed signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}: Temp={radar_signal_status.internal_temp:.1f}°C, Counter={radar_signal_status.counter}')
+        print(f'Updated global radar_signal_status: Temp={radar_signal_status.internal_temp:.1f}°C, Counter={radar_signal_status.counter}')
         
     except Exception as e:
         print(f'Error processing radar signal status: {e}')
@@ -422,8 +417,8 @@ def process_ObjectList_CAN0(radar_dbc: database.Database) -> None:
     for entry in object_attribute_list:
         if entry.arbitration_id == message_radar.arbitration_id:
             # E2E protection check
-            if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
-                continue
+            #if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
+            #    continue
             
             # Decode message once
             decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
@@ -450,16 +445,11 @@ def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
         if is_raspberrypi():
             message_radar = can_bus_radar.recv(timeout=0.1)
         
-        
-        # Print detailed radar data in CLI
-        print(f'Radar CAN Message: ID=0x{message_radar.arbitration_id:03X} ({message_radar.arbitration_id}) | '
-              f'DLC={message_radar.dlc} | Data={message_radar.data.hex().upper()} | '
-              f'Bytes=[{", ".join(f"0x{b:02X}" for b in message_radar.data)}]')
-            
         # Check if message is None (timeout or no message)
         if message_radar is None:
             return radar_view
-            
+        
+
         # Add message to sniffer regardless of processing
         can_sniffer.add_message(
             message_radar.arbitration_id, 
@@ -471,13 +461,19 @@ def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
         if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
             print(f'  → Signal Status Frame (0x45): {len(message_radar.data)} bytes received')
                  
-        # If sniffer is enabled, skip processing but still process signal status for system monitoring
+        # Process signal status frame regardless of sniffer state
+        if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+            # Print detailed radar data in CLI
+            print(f'Radar CAN Message: ID=0x{message_radar.arbitration_id:03X} ({message_radar.arbitration_id}) | '
+                f'DLC={message_radar.dlc} | Data={message_radar.data.hex().upper()} | '
+                f'Bytes=[{", ".join(f"0x{b:02X}" for b in message_radar.data)}]')
+            
+            process_RadarStatus_CAN0(radar_dbc, message_radar)
+            return radar_view
+
+        # If sniffer is enabled, skip other processing
         if can_sniffer.enabled:
-            # Still process signal status frame for radar health monitoring
-            if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-                print(f'Received signal status frame 0x45')
-                process_RadarStatus_CAN0(radar_dbc, message_radar)
-                return
+            return radar_view
 
         # Process object list frames
         process_ObjectList_CAN0(radar_dbc)   

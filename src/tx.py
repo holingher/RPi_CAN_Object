@@ -164,17 +164,17 @@ def process_240(can_bus_radar:can.BusABC, ts):
             
 ##############################################################
 # process the TX messages to radar
-def process_CAN0_tx(can_bus_radar:can.BusABC):
-    if can_bus_radar is None:
+def process_CAN0_tx(can_bus_CAN0:can.BusABC):
+    if can_bus_CAN0 is None:
         print("CAN bus is not initialized.")
         return
 
     # Get the current time in milliseconds
     current_time = time.time() * 1000  # Convert to milliseconds
 
-    process_200(can_bus_radar, current_time)
-    process_210(can_bus_radar, current_time)
-    process_220(can_bus_radar, current_time)
-    process_230(can_bus_radar, current_time)  
-    process_240(can_bus_radar, current_time)
+    process_200(can_bus_CAN0, current_time)
+    process_210(can_bus_CAN0, current_time)
+    process_220(can_bus_CAN0, current_time)
+    process_230(can_bus_CAN0, current_time)  
+    process_240(can_bus_CAN0, current_time)
 
