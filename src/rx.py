@@ -325,12 +325,7 @@ def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> Flr
     Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
     Decodes FlrFlr1canFr96 frame and updates global radar_signal_status
     """
-    
     try:
-        # Check if this is the signal status frame
-        if message_radar.arbitration_id != SIGNAL_STATUS_CAN_ID:
-            return radar_signal_status
-        
         print(f'Received signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X} with {len(message_radar.data)} bytes')
             
         # E2E protection check (temporarily disabled for debugging)
@@ -343,7 +338,6 @@ def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> Flr
             print(f'E2E check error: {e}, continuing anyway...')
             
         # Decode the message using DBC
-        message_def = radar_dbc.get_message_by_frame_id(SIGNAL_STATUS_CAN_ID)
         decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
 
         # Update radar signal status with decoded values
@@ -455,6 +449,12 @@ def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     try:
         if is_raspberrypi():
             message_radar = can_bus_radar.recv(timeout=0.1)
+        
+        
+        # Print detailed radar data in CLI
+        print(f'Radar CAN Message: ID=0x{message_radar.arbitration_id:03X} ({message_radar.arbitration_id}) | '
+              f'DLC={message_radar.dlc} | Data={message_radar.data.hex().upper()} | '
+              f'Bytes=[{", ".join(f"0x{b:02X}" for b in message_radar.data)}]')
             
         # Check if message is None (timeout or no message)
         if message_radar is None:
@@ -466,11 +466,16 @@ def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
             message_radar.data, 
             getattr(message_radar, 'timestamp', None)
         )
-            
+
+        # Special handling for signal status frame
+        if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+            print(f'  → Signal Status Frame (0x45): {len(message_radar.data)} bytes received')
+                 
         # If sniffer is enabled, skip processing but still process signal status for system monitoring
         if can_sniffer.enabled:
             # Still process signal status frame for radar health monitoring
             if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+                print(f'Received signal status frame 0x45')
                 process_RadarStatus_CAN0(radar_dbc, message_radar)
                 return
 
