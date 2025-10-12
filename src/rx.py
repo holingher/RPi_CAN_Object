@@ -4,18 +4,10 @@ from cantools import database
 import time
 import os
 import e2e
-import threading
 from dataclasses import dataclass, field
 from can import Message
 from typing import List, Tuple, Dict, Optional
 from defines import *
-
-# Import GPIO for interrupt handling
-try:
-    import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = True
-except ImportError:
-    GPIO_AVAILABLE = False
 
 # Initialize default CAN messages as module constants
 DEFAULT_RADAR_MESSAGE = Message(
@@ -54,96 +46,6 @@ class EgoMotion:
 
 # Global ego motion instance
 ego_motion_data = EgoMotion()
-
-# Interrupt-based CAN configuration for KaMami CAN FD HAT
-CAN0_INT_PIN = 25  # GPIO 25 for CAN0 interrupt (radar)
-CAN1_INT_PIN = 13  # GPIO 13 for CAN1 interrupt (car)
-
-# Thread-safe message queues
-can0_messages = []
-can1_messages = []
-message_lock = threading.Lock()
-
-# CAN bus references
-can_bus_radar = None
-can_bus_car = None
-radar_dbc = None
-
-def can0_interrupt_handler(channel):
-    """Handle CAN0 interrupt - radar messages"""
-    global can_bus_radar, can0_messages
-    if can_bus_radar:
-        try:
-            while True:
-                message = can_bus_radar.recv(timeout=0.001)
-                if message is None:
-                    break
-                with message_lock:
-                    can0_messages.append(message)
-                    # Keep queue size manageable
-                    if len(can0_messages) > 50:
-                        can0_messages.pop(0)
-        except:
-            pass  # Ignore errors in interrupt handler
-
-def can1_interrupt_handler(channel):
-    """Handle CAN1 interrupt - car messages"""
-    global can_bus_car, can1_messages
-    if can_bus_car:
-        try:
-            while True:
-                message = can_bus_car.recv(timeout=0.001)
-                if message is None:
-                    break
-                with message_lock:
-                    can1_messages.append(message)
-                    # Keep queue size manageable
-                    if len(can1_messages) > 50:
-                        can1_messages.pop(0)
-        except:
-            pass  # Ignore errors in interrupt handler
-
-def setup_can_interrupts(radar_bus, car_bus, dbc):
-    """Setup GPIO interrupts for CAN reception"""
-    global can_bus_radar, can_bus_car, radar_dbc
-    
-    if not GPIO_AVAILABLE or not is_raspberrypi():
-        print("GPIO not available - interrupt mode disabled")
-        return False
-    
-    try:
-        can_bus_radar = radar_bus
-        can_bus_car = car_bus
-        radar_dbc = dbc
-        
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        
-        # Setup CAN0 interrupt (radar)
-        GPIO.setup(CAN0_INT_PIN, GPIO.IN)
-        GPIO.add_event_detect(CAN0_INT_PIN, GPIO.FALLING, callback=can0_interrupt_handler, bouncetime=2)
-        
-        # Setup CAN1 interrupt (car)
-        GPIO.setup(CAN1_INT_PIN, GPIO.IN)
-        GPIO.add_event_detect(CAN1_INT_PIN, GPIO.FALLING, callback=can1_interrupt_handler, bouncetime=2)
-        
-        print(f"CAN interrupts configured: GPIO{CAN0_INT_PIN}(radar), GPIO{CAN1_INT_PIN}(car)")
-        return True
-        
-    except Exception as e:
-        print(f"Failed to setup interrupts: {e}")
-        return False
-
-def cleanup_can_interrupts():
-    """Cleanup GPIO interrupts"""
-    if GPIO_AVAILABLE and is_raspberrypi():
-        try:
-            GPIO.remove_event_detect(CAN0_INT_PIN)
-            GPIO.remove_event_detect(CAN1_INT_PIN)
-            GPIO.cleanup([CAN0_INT_PIN, CAN1_INT_PIN])
-        except:
-            pass
-
 ####################################################################
 @dataclass
 class ObjectDrawData:
@@ -437,8 +339,6 @@ def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> 
             if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=0x8D8):
                 print(f'E2E protection failed for signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}, continuing anyway...')
                 # Continue processing even if E2E fails for now
-            else:
-                print(f'E2E protection passed for signal status frame 0x{SIGNAL_STATUS_CAN_ID:03X}')
         except Exception as e:
             print(f'E2E check error: {e}, continuing anyway...')
             
@@ -514,8 +414,8 @@ def process_radar_signal_status(radar_dbc: database.Database, message_radar) -> 
     return radar_signal_status
 
 def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
-    """Interrupt-based radar message processing"""
-    global can0_messages
+    """Optimized radar message processing with improved error handling"""
+    global message_radar
     
     if not object_attribute_list:
         return radar_view
@@ -524,63 +424,65 @@ def process_radar_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
     max_id = object_attribute_list[-1].arbitration_id
 
     try:
-        # Get messages from interrupt queue
-        messages_to_process = []
-        with message_lock:
-            messages_to_process = can0_messages.copy()
-            can0_messages.clear()
-        
-        # Process all queued messages
-        for message_radar in messages_to_process:
-            # Add message to sniffer regardless of processing
-            can_sniffer.add_message(
-                message_radar.arbitration_id, 
-                message_radar.data, 
-                getattr(message_radar, 'timestamp', None)
-            )
-                
-            # If sniffer is enabled, skip processing but still process signal status for system monitoring
-            if can_sniffer.enabled:
-                # Still process signal status frame for radar health monitoring
-                if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
-                    process_radar_signal_status(radar_dbc, message_radar)
-                continue
+        if is_raspberrypi():
+            message_radar = can_bus_radar.recv(timeout=0.1)
             
-            # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
+        # Check if message is None (timeout or no message)
+        if message_radar is None:
+            return radar_view
+            
+        # Add message to sniffer regardless of processing
+        can_sniffer.add_message(
+            message_radar.arbitration_id, 
+            message_radar.data, 
+            getattr(message_radar, 'timestamp', None)
+        )
+            
+        # If sniffer is enabled, skip processing but still process signal status for system monitoring
+        if can_sniffer.enabled:
+            # Still process signal status frame for radar health monitoring
             if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
                 process_radar_signal_status(radar_dbc, message_radar)
-                continue  # Continue processing other messages
+            return
+        
+        # Process radar signal status frame (CAN ID 0x45) - MUST be before bounds check!
+        if message_radar.arbitration_id == SIGNAL_STATUS_CAN_ID:
+            process_radar_signal_status(radar_dbc, message_radar)
+            return  # Return after processing signal status
+            
+        # Quick bounds check before processing object data
+        if not (reference_id <= message_radar.arbitration_id <= max_id):
+            return radar_view
+            
+        # Process matching arbitration ID
+        for entry in object_attribute_list:
+            if entry.arbitration_id == message_radar.arbitration_id:
+                # E2E protection check
+                if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
+                    continue
                 
-            # Quick bounds check before processing object data
-            if not (reference_id <= message_radar.arbitration_id <= max_id):
-                continue
+                # Decode message once
+                decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
                 
-            # Process matching arbitration ID
-            for entry in object_attribute_list:
-                if entry.arbitration_id == message_radar.arbitration_id:
-                    # E2E protection check
-                    if not e2e.p05.e2e_p05_check(message_radar.data, message_radar.dlc, data_id=entry.e2e_data_id):
-                        continue
-                    
-                    # Decode message once
-                    decoded_message = radar_dbc.decode_message(message_radar.arbitration_id, message_radar.data)
-                    
-                    # Update global message counters
-                    radar_view.msg_counter = decoded_message.get(entry.msg_counter_signal, 0)
-                    radar_view.scan_id = decoded_message.get(entry.scan_id_signal, 0)
-                    
-                    # Calculate array index
-                    index_entry = entry.arbitration_id - reference_id
-                    
-                    # Update object data efficiently
-                    update_object_data(decoded_message, entry.msg_obj_prop.first_obj_prop, index_entry)
-                    update_object_data(decoded_message, entry.msg_obj_prop.second_obj_prop, index_entry + 1)
-                    
-                    print(f'Processing arbitration_id: 0x{message_radar.arbitration_id:03X}')
-                    break
-                    
+                # Update global message counters
+                radar_view.msg_counter = decoded_message.get(entry.msg_counter_signal, 0)
+                radar_view.scan_id = decoded_message.get(entry.scan_id_signal, 0)
+                
+                # Calculate array index
+                index_entry = entry.arbitration_id - reference_id
+                
+                # Update object data efficiently
+                update_object_data(decoded_message, entry.msg_obj_prop.first_obj_prop, index_entry)
+                update_object_data(decoded_message, entry.msg_obj_prop.second_obj_prop, index_entry + 1)
+                
+                print(f'Processing arbitration_id: 0x{message_radar.arbitration_id:03X}')
+                break
+                
+    except OSError as e:
+        print(f'Radar CAN bus error: {e}')
+        # Don't exit, just return current state
     except Exception as e:
-        print(f'Radar processing error: {e}')
+        print(f'Unexpected radar processing error: {e}')
         
     return radar_view
 '''
@@ -604,48 +506,50 @@ or
 https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
 '''
 def process_car_rx(can_bus_car) -> EgoMotion:
-    """Interrupt-based vehicle CAN message processing"""
-    global can1_messages
+    """Optimized vehicle CAN message processing"""
+    global message_car
     
     # Use immutable replacement pattern for frozen dataclass
     updated_values = {}
     
     try:
-        # Get messages from interrupt queue
-        messages_to_process = []
-        with message_lock:
-            messages_to_process = can1_messages.copy()
-            can1_messages.clear()
+        if is_raspberrypi():
+            message_car = can_bus_car.recv(timeout=0.1)
         
-        # Process all queued messages
-        for message_car in messages_to_process:
-            # Add message to sniffer
-            can_sniffer.add_message(
-                message_car.arbitration_id, 
-                message_car.data, 
-                getattr(message_car, 'timestamp', None)
-            )
-                
-            # If sniffer is enabled, skip processing
-            if can_sniffer.enabled:
-                continue
-                
-            # Process vehicle speed
-            if message_car.arbitration_id == VEHICLE_SPEED:
-                # TODO: Implement proper DBC decoding when available
-                updated_values['speed'] = 0  # radar_dbc.decode_message(...)
-                
-            # Process wheel speeds
-            elif message_car.arbitration_id == WHEEL_SPEED:
-                # TODO: Implement proper DBC decoding when available
-                updated_values.update({
-                    'left_wheel_speed': 0,   # radar_dbc.decode_message(...)
-                    'right_wheel_speed': 0   # radar_dbc.decode_message(...)
-                })
-                print(f'Vehicle CAN ID: 0x{message_car.arbitration_id:03X}, Data: {message_car.data.hex()}')
-                
+        # Check if message is None (timeout or no message)
+        if message_car is None:
+            return ego_motion_data
+        
+        # Add message to sniffer
+        can_sniffer.add_message(
+            message_car.arbitration_id, 
+            message_car.data, 
+            getattr(message_car, 'timestamp', None)
+        )
+            
+        # If sniffer is enabled, skip processing
+        if can_sniffer.enabled:
+            return ego_motion_data
+            
+        # Process vehicle speed
+        if message_car.arbitration_id == VEHICLE_SPEED:
+            # TODO: Implement proper DBC decoding when available
+            updated_values['speed'] = 0  # radar_dbc.decode_message(...)
+            
+        # Process wheel speeds
+        elif message_car.arbitration_id == WHEEL_SPEED:
+            # TODO: Implement proper DBC decoding when available
+            updated_values.update({
+                'left_wheel_speed': 0,   # radar_dbc.decode_message(...)
+                'right_wheel_speed': 0   # radar_dbc.decode_message(...)
+            })
+            print(f'Vehicle CAN ID: 0x{message_car.arbitration_id:03X}, Data: {message_car.data.hex()}')
+            
+    except OSError as e:
+        print(f'Vehicle CAN bus error: {e}')
+        # Don't exit, return current state
     except Exception as e:
-        print(f'Vehicle processing error: {e}')
+        print(f'Unexpected vehicle processing error: {e}')
     
     # Return updated ego motion data (immutable replacement)
     if updated_values:
@@ -671,6 +575,5 @@ process_rx_car = process_car_rx
 __all__ = [
     'radar_view', 'radar_signal_status', 'ego_motion_data', 'can_sniffer',
     'process_radar_rx', 'process_car_rx', 'process_radar_signal_status',
-    'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion',
-    'setup_can_interrupts', 'cleanup_can_interrupts'
+    'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion'
 ]
