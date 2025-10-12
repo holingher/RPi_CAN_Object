@@ -4,6 +4,7 @@ import time
 import can
 import cantools
 from defines import *
+from rx import setup_can_interrupts
 
 ########################################################################################
 def init_com():
@@ -31,6 +32,13 @@ def init_com():
         
             print(f"CAN bus object: {can_bus_radar}")
         time.sleep(0.1)
+        
+        # Setup CAN interrupts for KaMami CAN FD HAT
+        if setup_can_interrupts(can_bus_radar, can_bus_car, dbc_radar):
+            print('CAN interrupt mode enabled')
+        else:
+            print('CAN interrupt setup failed - check GPIO availability')
+            
         print('Ready')
     except OSError as e:
         print(f'Cannot find CAN board: {e}')
@@ -40,9 +48,13 @@ def init_com():
 
 ########################################################################################
 def deinit_com():
+    # Clean up CAN interrupts first
+    from rx import cleanup_can_interrupts
+    cleanup_can_interrupts()
+    
     if(is_raspberrypi()):
         print('\n\rClosing interface...')
         os.system("sudo ip link set can0 down")
         os.system("sudo ip link set can1 down")
-    print('\n\rKeyboard interrtupt')
+    print('\n\rKeyboard interrupt')
     os._exit(0)
