@@ -1,26 +1,15 @@
-from typing import Callable
 import time
+import threading
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
 from rx import radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status
-from tx import process_CAN0_tx
+from tx import periodic_CAN0_tx_TimeSync_125ms_wrapper, process_CAN0_tx_60ms_wrapper
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
 from menu import draw_extraInfo, draw_exit_button, toggle_rays, is_rays_enabled, is_can_screen_enabled, draw_can_data_screen, handle_swipe_events, draw_swipe_instructions, is_radar_status_screen_enabled, draw_radar_status_screen
 from simulate import init_process_sim_radar, process_sim_car, process_sim_radar
 from defines import *
-
-def periodic_task(interval_ms: float, task: Callable, stop_event, *args, **kwargs):
-    next_run_time = time.time()
-    while not stop_event.is_set():
-        current_time = time.time()
-        if current_time >= next_run_time:
-            task(*args, **kwargs)
-            next_run_time += interval_ms / 1000.0
-        else:
-            time_to_sleep = next_run_time - current_time
-            time.sleep(time_to_sleep)
 
 def main():
     """Optimized main function with improved data type handling"""
@@ -36,21 +25,22 @@ def main():
         if not is_raspberrypi():
             init_process_sim_radar()
             
-        '''
-        # Create stop events for the processes
-        stop_event_tx_radar = Event()
-        stop_event_rx_radar = Event()
-        stop_event_sim_radar = Event()
+        # Create stop events for threads
+        stop_event_periodic_CAN0_tx_60ms = threading.Event()
+        stop_event_periodic_CAN0_tx_TimeSync_125ms = threading.Event()
 
-        # Start periodic tasks as processes
-        tx_radar_process = Process(target=periodic_task, args=(60, process_CAN0_tx, stop_event_tx_radar, main_can_bus_radar))
-        rx_radar_process = Process(target=periodic_task, args=(50, process_CAN0_rx, stop_event_rx_radar, main_radar_dbc, main_can_bus_radar))
-        sim_radar_process = Process(target=periodic_task, args=(50, process_sim_radar, stop_event_sim_radar))
+        # Start TX thread with wrapper function using existing CAN bus
+        periodic_CAN0_tx_60ms_thread = threading.Thread(target=process_CAN0_tx_60ms_wrapper, args=(60, stop_event_periodic_CAN0_tx_60ms, main_can_bus_CAN1))
+        periodic_CAN0_tx_60ms_thread.daemon = True
+        periodic_CAN0_tx_60ms_thread.start()
+        print("TX thread started - sending CAN messages every 60ms")
 
-        tx_radar_process.start()
-        rx_radar_process.start()
-        sim_radar_process.start()
-       '''
+        # Start 125ms periodic thread
+        periodic_CAN0_tx_TimeSync_125ms_thread = threading.Thread(target=periodic_CAN0_tx_TimeSync_125ms_wrapper, args=(125, stop_event_periodic_CAN0_tx_TimeSync_125ms, main_can_bus_CAN1))
+        periodic_CAN0_tx_TimeSync_125ms_thread.daemon = True
+        periodic_CAN0_tx_TimeSync_125ms_thread.start()
+        print("125ms periodic thread started")
+        
         # loop
         running = True
         def exit_callback():
@@ -84,8 +74,7 @@ def main():
                 #process_CAN1_tx(main_can_bus_CAN1)
 
                 ##### CAN0 - Radar #####
-                # Process the TX data
-                process_CAN0_tx(main_can_bus_CAN0)
+                # TX is now handled by separate process - removed from main loop
                 # Process the RX data
                 process_CAN0_rx(main_radar_dbc, main_can_bus_CAN1)
             else:
@@ -137,25 +126,19 @@ def main():
             # Update the display
             draw_update()  
             #print(main_vehicle_group)
-        '''
-        # Signal the processes to stop
-        stop_event_sim_radar.set()
-        stop_event_tx_radar.set()
-        stop_event_rx_radar.set()
-        tx_radar_process.join()
-        rx_radar_process.join()
-        stop_event_sim_radar.join()
-        '''
+        
+        # Clean shutdown
+        stop_event_periodic_CAN0_tx_60ms.set()
+        stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
+        periodic_CAN0_tx_60ms_thread.join()
+        periodic_CAN0_tx_TimeSync_125ms_thread.join()
         deinit_draw()
     except KeyboardInterrupt:
-        '''
-        stop_event_sim_radar.set()
-        stop_event_tx_radar.set()
-        stop_event_rx_radar.set()
-        tx_radar_process.join()
-        rx_radar_process.join()
-        stop_event_sim_radar.join()
-        '''
+        # Clean shutdown on interrupt
+        stop_event_periodic_CAN0_tx_60ms.set()
+        stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
+        periodic_CAN0_tx_60ms_thread.join()
+        periodic_CAN0_tx_TimeSync_125ms_thread.join()
         deinit_com()
         deinit_draw()
 
