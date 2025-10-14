@@ -12,4 +12,6 @@ sudo python3 -m pip install autosar-e2e --break-system-packages
 
 sudo python3 -m pip install distro --break-system-packages
 
+sudo python3 -m pip install numpy --break-system-packages
+
 sudo apt-get install htop
