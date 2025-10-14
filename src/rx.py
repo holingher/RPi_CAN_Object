@@ -4,19 +4,10 @@ from cantools import database
 import time
 import os
 import e2e
-import threading
 from dataclasses import dataclass, field
 from can import Message
 from typing import List, Tuple, Dict, Optional
 from defines import *
-
-# GPIO interrupt support for Raspberry Pi
-try:
-    import RPi.GPIO as GPIO
-    GPIO_AVAILABLE = True
-except ImportError:
-    GPIO_AVAILABLE = False
-    print("RPi.GPIO not available - running without GPIO interrupts")
 
 # Initialize default CAN messages as module constants
 DEFAULT_RADAR_MESSAGE = Message(
@@ -38,20 +29,6 @@ DEFAULT_CAR_MESSAGE = Message(
 # Global message variables
 message_radar = DEFAULT_RADAR_MESSAGE
 message_car = DEFAULT_CAR_MESSAGE
-
-# GPIO interrupt configuration for KaMami CanFD HAT
-CAN0_INTERRUPT_PIN = 24  # GPIO pin for CAN0 interrupt
-CAN1_INTERRUPT_PIN = 25  # GPIO pin for CAN1 interrupt
-
-# Thread-safe message queues for interrupt handling
-message_queue_can0 = []
-message_queue_can1 = []
-queue_lock = threading.Lock()
-
-# Interrupt flags and CAN bus objects for interrupt handling
-interrupt_enabled = False
-interrupt_can_bus_0 = None
-interrupt_can_bus_1 = None
 
 # Vehicle CAN IDs - Honda/Volvo compatible
 VEHICLE_SPEED = 0x164  # Vehicle Speed
@@ -342,124 +319,6 @@ def update_object_data(decoded_message: dict, obj_prop: ObjectProperty, index: i
         model_info=decoded_message.get(obj_prop.model_info_signal, 0),
         quality=decoded_message.get(obj_prop.quality_signal, 0)
     )
-
-# GPIO Interrupt handling functions for KaMami CanFD HAT
-def can0_interrupt_handler(channel):
-    """GPIO interrupt handler for CAN0 (pin 24)"""
-    global interrupt_can_bus_0
-    
-    if not interrupt_enabled or not interrupt_can_bus_0:
-        return
-        
-    try:
-        # Read CAN message from persistent bus object
-        message = interrupt_can_bus_0.recv(timeout=0.001)  # Very short timeout in interrupt
-        
-        if message:
-            with queue_lock:
-                message_queue_can0.append(message)
-                # Limit queue size to prevent memory issues
-                if len(message_queue_can0) > 100:
-                    message_queue_can0.pop(0)
-                    
-    except Exception as e:
-        print(f"CAN0 interrupt error: {e}")
-
-def can1_interrupt_handler(channel):
-    """GPIO interrupt handler for CAN1 (pin 25)"""
-    global interrupt_can_bus_1
-    
-    if not interrupt_enabled or not interrupt_can_bus_1:
-        return
-        
-    try:
-        # Read CAN message from persistent bus object
-        message = interrupt_can_bus_1.recv(timeout=0.001)  # Very short timeout in interrupt
-        
-        if message:
-            with queue_lock:
-                message_queue_can1.append(message)
-                # Limit queue size to prevent memory issues
-                if len(message_queue_can1) > 100:
-                    message_queue_can1.pop(0)
-                    
-    except Exception as e:
-        print(f"CAN1 interrupt error: {e}")
-
-def init_gpio_interrupts():
-    """Initialize GPIO interrupts for KaMami CanFD HAT"""
-    global interrupt_enabled, interrupt_can_bus_0, interrupt_can_bus_1
-    
-    if not GPIO_AVAILABLE or not is_raspberrypi():
-        print("GPIO interrupts not available - using polling mode")
-        return False
-        
-    try:
-        # Create persistent CAN bus objects for interrupt handlers
-        interrupt_can_bus_0 = can.interface.Bus(channel='can0', interface='socketcan', 
-                                               bitrate=500000, data_bitrate=2000000, fd=True)
-        interrupt_can_bus_1 = can.interface.Bus(channel='can1', interface='socketcan', 
-                                               bitrate=500000, data_bitrate=2000000, fd=True)
-        
-        # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        
-        # Configure interrupt pins as inputs with pull-up resistors
-        GPIO.setup(CAN0_INTERRUPT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(CAN1_INTERRUPT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        
-        # Setup interrupt handlers for falling edge (active low)
-        GPIO.add_event_detect(CAN0_INTERRUPT_PIN, GPIO.FALLING, 
-                             callback=can0_interrupt_handler, bouncetime=1)
-        GPIO.add_event_detect(CAN1_INTERRUPT_PIN, GPIO.FALLING, 
-                             callback=can1_interrupt_handler, bouncetime=1)
-        
-        interrupt_enabled = True
-        print(f"GPIO interrupts initialized on pins {CAN0_INTERRUPT_PIN} and {CAN1_INTERRUPT_PIN}")
-        return True
-        
-    except Exception as e:
-        print(f"Failed to initialize GPIO interrupts: {e}")
-        interrupt_enabled = False
-        return False
-
-def cleanup_gpio_interrupts():
-    """Clean up GPIO resources"""
-    global interrupt_enabled, interrupt_can_bus_0, interrupt_can_bus_1
-    
-    if GPIO_AVAILABLE and interrupt_enabled:
-        try:
-            GPIO.remove_event_detect(CAN0_INTERRUPT_PIN)
-            GPIO.remove_event_detect(CAN1_INTERRUPT_PIN)
-            GPIO.cleanup([CAN0_INTERRUPT_PIN, CAN1_INTERRUPT_PIN])
-            
-            # Close CAN bus objects
-            if interrupt_can_bus_0:
-                interrupt_can_bus_0.shutdown()
-                interrupt_can_bus_0 = None
-            if interrupt_can_bus_1:
-                interrupt_can_bus_1.shutdown()
-                interrupt_can_bus_1 = None
-                
-            interrupt_enabled = False
-            print("GPIO interrupts cleaned up")
-        except Exception as e:
-            print(f"Error cleaning up GPIO: {e}")
-
-def get_queued_message_can0():
-    """Get next message from CAN0 interrupt queue"""
-    with queue_lock:
-        if message_queue_can0:
-            return message_queue_can0.pop(0)
-    return None
-
-def get_queued_message_can1():
-    """Get next message from CAN1 interrupt queue"""
-    with queue_lock:
-        if message_queue_can1:
-            return message_queue_can1.pop(0)
-    return None
 def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> FlrFlr1canFr96:
     """
     Process radar signal status frame (CAN ID: 0x45 / 69 decimal)
@@ -579,17 +438,12 @@ def process_ObjectList_CAN0(radar_dbc: database.Database) -> None:
             break
             
 def process_CAN0_rx(radar_dbc: database.Database, can_bus_radar) -> RadarView:
-    """Optimized radar message processing with interrupt-based handling"""
+    """Optimized radar message processing with improved error handling"""
     global message_radar
     
     try:
         if is_raspberrypi():
-            if interrupt_enabled:
-                # Use interrupt-based message retrieval
-                message_radar = get_queued_message_can0()
-            else:
-                # Fallback to polling mode
-                message_radar = can_bus_radar.recv(timeout=0.1)
+            message_radar = can_bus_radar.recv(timeout=0.1)
         
         # Check if message is None (timeout or no message)
         if message_radar is None:
@@ -652,7 +506,7 @@ or
 https://github.com/Knio/carhack/blob/master/Cars/Honda.markdown
 '''
 def process_CAN1_rx(can_bus_car) -> EgoMotion:
-    """Optimized vehicle CAN message processing with interrupt-based handling"""
+    """Optimized vehicle CAN message processing"""
     global message_car
     
     # Use immutable replacement pattern for frozen dataclass
@@ -660,12 +514,7 @@ def process_CAN1_rx(can_bus_car) -> EgoMotion:
     
     try:
         if is_raspberrypi():
-            if interrupt_enabled:
-                # Use interrupt-based message retrieval
-                message_car = get_queued_message_can1()
-            else:
-                # Fallback to polling mode
-                message_car = can_bus_car.recv(timeout=0.1)
+            message_car = can_bus_car.recv(timeout=0.1)
         
         # Check if message is None (timeout or no message)
         if message_car is None:
@@ -726,6 +575,5 @@ def toggle_can_sniffer():
 __all__ = [
     'radar_view', 'radar_signal_status', 'ego_motion_data', 'can_sniffer',
     'process_CAN0_rx', 'process_CAN1_rx', 'process_RadarStatus_CAN0',
-    'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion',
-    'init_gpio_interrupts', 'cleanup_gpio_interrupts', 'interrupt_enabled'
+    'toggle_can_sniffer', 'FlrFlr1canFr96', 'ObjectDrawData', 'EgoMotion'
 ]
