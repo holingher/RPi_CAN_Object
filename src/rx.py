@@ -345,17 +345,36 @@ def process_RadarStatus_CAN0(radar_dbc: database.Database, message_radar) -> Flr
         def safe_get(signal_name, default_value, value_type=None):
             try:
                 # Cantools decoded message can be accessed like a dictionary
-                value = decoded_message[signal_name] if signal_name in decoded_message else default_value
+                if signal_name not in decoded_message:
+                    return default_value
+                    
+                raw_value = decoded_message[signal_name]
+                
+                # Handle NamedSignalValue objects from cantools
+                # Convert NamedSignalValue to its actual numeric value
+                if hasattr(raw_value, 'value'):
+                    # NamedSignalValue has a .value attribute
+                    actual_value = raw_value.value
+                elif hasattr(raw_value, 'raw_value'):
+                    # Some versions might use raw_value
+                    actual_value = raw_value.raw_value
+                else:
+                    # Try to convert to string first, then to number
+                    try:
+                        actual_value = float(str(raw_value))
+                    except (ValueError, TypeError):
+                        actual_value = raw_value
                 
                 # Convert to appropriate type with explicit casting
                 if value_type == int:
-                    return int(float(value))  # Convert via float first to handle scientific notation
+                    return int(float(actual_value))  # Convert via float first to handle scientific notation
                 elif value_type == float:
-                    return float(value)
+                    return float(actual_value)
                 elif value_type == bool:
-                    return bool(int(value)) if isinstance(value, (int, float)) else bool(value)
+                    return bool(int(float(actual_value))) if isinstance(actual_value, (int, float, str)) else bool(actual_value)
                 else:
-                    return value
+                    return actual_value
+                    
             except (KeyError, TypeError, ValueError) as e:
                 print(f"Warning: Could not decode {signal_name}, using default {default_value}. Error: {e}")
                 return default_value

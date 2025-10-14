@@ -30,7 +30,7 @@ def main():
         stop_event_periodic_CAN0_tx_TimeSync_125ms = threading.Event()
 
         # Start TX thread with wrapper function using existing CAN bus
-        periodic_CAN0_tx_60ms_thread = threading.Thread(target=process_CAN0_tx_60ms_wrapper, args=(60, stop_event_periodic_CAN0_tx_60ms, main_can_bus_CAN1))
+        periodic_CAN0_tx_60ms_thread = threading.Thread(target=process_CAN0_tx_60ms_wrapper, args=(60, stop_event_periodic_CAN0_tx_60ms, main_can_bus_CAN0))
         periodic_CAN0_tx_60ms_thread.daemon = True
         periodic_CAN0_tx_60ms_thread.start()
         print("TX thread started - sending CAN messages every 60ms")
@@ -68,7 +68,7 @@ def main():
             if is_raspberrypi():
                 ##### CAN1 - Car #####
                 # Process the RX data
-                process_CAN1_rx(main_can_bus_CAN1)
+                #process_CAN1_rx(main_can_bus_CAN1)
                 # Process the TX data
                 # not required as no data to send
                 #process_CAN1_tx(main_can_bus_CAN1)
