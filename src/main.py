@@ -3,7 +3,7 @@ import threading
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status, init_gpio_interrupts, cleanup_gpio_interrupts
+from rx import radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status
 from tx import periodic_CAN0_tx_TimeSync_125ms_wrapper, process_CAN0_tx_60ms_wrapper
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
@@ -20,14 +20,6 @@ def main():
         main_screen, main_ego_group, main_vehicle_group, main_ego_vehicle = init_draw()
         # Initialize the CAN communication
         main_can_bus_CAN0, main_can_bus_CAN1, main_radar_dbc = init_com()
-        
-        # Initialize GPIO interrupts for KaMami CanFD HAT
-        if is_raspberrypi():
-            interrupt_success = init_gpio_interrupts()
-            if interrupt_success:
-                print("Using interrupt-based CAN reception on GPIO pins 24 and 25")
-            else:
-                print("Fallback to polling-based CAN reception")
         
         # Set display flags based on platform
         if not is_raspberrypi():
@@ -140,11 +132,6 @@ def main():
         stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
         periodic_CAN0_tx_60ms_thread.join()
         periodic_CAN0_tx_TimeSync_125ms_thread.join()
-        
-        # Cleanup GPIO interrupts
-        if is_raspberrypi():
-            cleanup_gpio_interrupts()
-            
         deinit_draw()
     except KeyboardInterrupt:
         # Clean shutdown on interrupt
@@ -152,11 +139,6 @@ def main():
         stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
         periodic_CAN0_tx_60ms_thread.join()
         periodic_CAN0_tx_TimeSync_125ms_thread.join()
-        
-        # Cleanup GPIO interrupts
-        if is_raspberrypi():
-            cleanup_gpio_interrupts()
-            
         deinit_com()
         deinit_draw()
 
