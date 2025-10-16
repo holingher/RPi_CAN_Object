@@ -1,13 +1,10 @@
-import can
-import cantools
 from cantools import database
 import time
-import os
-import e2e
 from dataclasses import dataclass, field
 from can import Message
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict
 from defines import *
+import queue
 
 # Initialize default CAN messages as module constants
 DEFAULT_RADAR_MESSAGE = Message(
@@ -564,13 +561,100 @@ def toggle_can_sniffer():
         can_sniffer.messages.clear()  # Clear old messages when enabling
     print(f"CAN Sniffer {'enabled' if can_sniffer.enabled else 'disabled'}")
 
-# Legacy compatibility aliases for existing code
-#list_of_Object_attr = object_attribute_list
+# GPIO interrupt handling for RPi5
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    GPIO_AVAILABLE = False
+    print("RPi.GPIO not available - running without interrupts")
 
-# Export optimized functions with legacy names for compatibility
-#process_rx_radar = process_CAN0_rx
-#process_rx_car = process_CAN1_rx
-
+class CANInterruptHandler:
+    def __init__(self):
+        self.can0_queue = queue.Queue()
+        self.can1_queue = queue.Queue()
+        self.interrupt_count = {"CAN0": 0, "CAN1": 0}
+        self.initialized = False
+        
+    def can0_interrupt_callback(self, channel):
+        """Interrupt handler for CAN0 on GPIO pin 24"""
+        timestamp = time.time()
+        self.interrupt_count["CAN0"] += 1
+        # Signal that new CAN0 data is available
+        self.can0_queue.put(timestamp)
+        print(f"CAN0 interrupt triggered on GPIO {channel}")
+        
+    def can1_interrupt_callback(self, channel):
+        """Interrupt handler for CAN1 on GPIO pin 25"""
+        timestamp = time.time()
+        self.interrupt_count["CAN1"] += 1
+        # Signal that new CAN1 data is available
+        self.can1_queue.put(timestamp)
+        print(f"CAN1 interrupt triggered on GPIO {channel}")
+        
+    def init_interrupts(self):
+        """Initialize GPIO interrupts for KaMami CanFD HAT"""
+        if not GPIO_AVAILABLE:
+            print("GPIO not available - using polling mode")
+            return False
+            
+        try:
+            # Set GPIO mode
+            GPIO.setmode(GPIO.BCM)
+            
+            # Configure interrupt pins (KaMami CanFD HAT uses pins 24 and 25)
+            GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # CAN0 interrupt
+            GPIO.setup(25, GPIO.IN, pull_up_down=GPIO.PUD_UP)  # CAN1 interrupt
+            
+            # Add interrupt detection
+            GPIO.add_event_detect(24, GPIO.FALLING, callback=self.can0_interrupt_callback, bouncetime=10)
+            GPIO.add_event_detect(25, GPIO.FALLING, callback=self.can1_interrupt_callback, bouncetime=10)
+            
+            self.initialized = True
+            print("GPIO interrupts initialized for KaMami CanFD HAT")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to initialize GPIO interrupts: {e}")
+            return False
+            
+    def cleanup_interrupts(self):
+        """Clean up GPIO resources"""
+        if GPIO_AVAILABLE and self.initialized:
+            try:
+                GPIO.remove_event_detect(24)
+                GPIO.remove_event_detect(25)
+                GPIO.cleanup([24, 25])
+                print("GPIO interrupts cleaned up")
+            except Exception as e:
+                print(f"Error cleaning up GPIO: {e}")
+                
+    def has_can0_data(self):
+        """Check if CAN0 interrupt was triggered"""
+        return not self.can0_queue.empty()
+        
+    def has_can1_data(self):
+        """Check if CAN1 interrupt was triggered"""
+        return not self.can1_queue.empty()
+        
+    def get_can0_timestamp(self):
+        """Get timestamp of last CAN0 interrupt"""
+        try:
+            return self.can0_queue.get_nowait()
+        except queue.Empty:
+            return None
+            
+    def get_can1_timestamp(self):
+        """Get timestamp of last CAN1 interrupt"""
+        try:
+            return self.can1_queue.get_nowait()
+        except queue.Empty:
+            return None
+            
+    def get_stats(self):
+        """Get interrupt statistics"""
+        return self.interrupt_count.copy()
+    
 # Export radar signal status for external access
 __all__ = [
     'radar_view', 'radar_signal_status', 'ego_motion_data', 'can_sniffer',

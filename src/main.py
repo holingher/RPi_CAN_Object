@@ -3,7 +3,7 @@ import threading
 from pygame import QUIT, KEYDOWN
 from init_com import init_com, deinit_com
 from init_draw import init_draw, deinit_draw
-from rx import radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status
+from rx import CANInterruptHandler, radar_view, ego_motion_data, process_CAN0_rx, process_CAN1_rx, radar_signal_status
 from tx import periodic_CAN0_tx_TimeSync_125ms_wrapper, process_CAN0_tx_60ms_wrapper
 from draw_3D import draw_3d_vehicle, draw_3d_road, draw_3d_rays
 from draw_2D import draw_get_events, draw_own, draw_environment, draw_rays, draw_update, update_vehicle
@@ -12,6 +12,9 @@ from simulate import init_process_sim_radar, process_sim_car, process_sim_radar
 from defines import *
 
 def main():
+    """Main function with GPIO interrupt support for RPi5"""
+    # Initialize interrupt handler
+    interrupt_handler = CANInterruptHandler()
     """Optimized main function with improved data type handling"""
     try:
         EgoMotion_data_main = ego_motion_data
@@ -21,9 +24,13 @@ def main():
         # Initialize the CAN communication
         main_can_bus_CAN0, main_can_bus_CAN1, main_radar_dbc = init_com()
         
-        # Set display flags based on platform
-        if not is_raspberrypi():
+        # Initialize GPIO interrupts for Raspberry Pi
+        if is_raspberrypi():
+            interrupt_handler.init_interrupts()
+            print("Running with GPIO interrupt support")
+        else:
             init_process_sim_radar()
+            print("Running in simulation mode")
             
         # Create stop events for threads
         stop_event_periodic_CAN0_tx_60ms = threading.Event()
@@ -66,17 +73,22 @@ def main():
 
             # Set display flags based on platform
             if is_raspberrypi():
-                ##### CAN1 - Car #####
-                # Process the RX data
-                process_CAN1_rx(main_can_bus_CAN1)
-                # Process the TX data
-                # not required as no data to send
-                #process_CAN1_tx(main_can_bus_CAN1)
-
-                ##### CAN0 - Radar #####
-                # TX is now handled by separate process - removed from main loop
-                # Process the RX data
-                process_CAN0_rx(main_radar_dbc, main_can_bus_CAN1)
+                # Use interrupt-driven CAN processing
+                if interrupt_handler.has_can1_data():
+                    timestamp = interrupt_handler.get_can1_timestamp()
+                    print(f"Processing CAN1 data triggered at {timestamp}")
+                    process_CAN1_rx(main_can_bus_CAN1)
+                
+                if interrupt_handler.has_can0_data():
+                    timestamp = interrupt_handler.get_can0_timestamp()
+                    print(f"Processing CAN0 data triggered at {timestamp}")
+                    process_CAN0_rx(main_radar_dbc, main_can_bus_CAN1)
+                    
+                # Print interrupt stats every 5 seconds
+                if time.time() - stats_timer > 5.0:
+                    stats = interrupt_handler.get_stats()
+                    print(f"Interrupt stats: CAN0={stats['CAN0']}, CAN1={stats['CAN1']}")
+                    stats_timer = time.time()
             else:
                 # simulate object list
                 process_sim_radar(main_radar_dbc, main_can_bus_CAN0, main_can_bus_CAN1) 
@@ -132,6 +144,7 @@ def main():
         stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
         periodic_CAN0_tx_60ms_thread.join()
         periodic_CAN0_tx_TimeSync_125ms_thread.join()
+        interrupt_handler.cleanup_interrupts()
         deinit_draw()
     except KeyboardInterrupt:
         # Clean shutdown on interrupt
@@ -139,6 +152,7 @@ def main():
         stop_event_periodic_CAN0_tx_TimeSync_125ms.set()
         periodic_CAN0_tx_60ms_thread.join()
         periodic_CAN0_tx_TimeSync_125ms_thread.join()
+        interrupt_handler.cleanup_interrupts()
         deinit_com()
         deinit_draw()
 
