@@ -4,13 +4,13 @@ from pygame import mouse as menu_mouse
 from pygame import event as menu_event
 from pygame import MOUSEBUTTONDOWN
 from pygame import Surface as menu_Surface
-from defines import white, gray, green, black, get_raspberry_pi_temperature
+from defines import white, gray, green, black, get_system_temperature
 from rx import toggle_can_sniffer, can_sniffer, radar_signal_status
 from swipe_detector import swipe_detector
 
 def draw_temperature(screen: menu_Surface, font_size=16):
     """Draw raspberry pi temperature at consistent location (left bottom corner)"""
-    temp = get_raspberry_pi_temperature()
+    temp = get_system_temperature()
     if temp is not None:
         # Choose color based on temperature (green < 60°C, yellow 60-70°C, red > 70°C)
         if temp < 60:
@@ -346,7 +346,7 @@ def draw_can_data_screen(screen: menu_Surface):
 
 def draw_radar_status_screen(screen, radar_signal_status, events):
     """Draw comprehensive radar status information from FlrFlr1canFr96 dataclass optimized for 800x480"""
-    from defines import get_raspberry_pi_temperature
+    from defines import get_system_temperature
     import pygame
     
     # Clear screen

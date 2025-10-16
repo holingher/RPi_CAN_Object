@@ -80,18 +80,90 @@ def is_raspberrypi():
     except Exception: pass
     return False
 
-def get_raspberry_pi_temperature():
-    """Get Raspberry Pi internal temperature in Celsius"""
+def get_system_temperature():
+    """Get system CPU temperature in Celsius for different platforms (RPi, Ubuntu/Linux, Windows)"""
     try:
         if is_raspberrypi():
+            # Raspberry Pi temperature
             with io.open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
                 temp_str = f.read().strip()
                 # Temperature is in millidegrees Celsius, convert to degrees
                 temp_celsius = float(temp_str) / 1000.0
                 return temp_celsius
         else:
-            # Return simulated temperature for non-RPi systems
+            import platform
+            import os
+            import subprocess
+            
+            system = platform.system().lower()
+            
+            if system == 'linux':
+                # Ubuntu/Linux temperature from thermal zones
+                thermal_paths = [
+                    '/sys/class/thermal/thermal_zone0/temp',
+                    '/sys/class/thermal/thermal_zone1/temp',
+                    '/sys/class/hwmon/hwmon0/temp1_input',
+                    '/sys/class/hwmon/hwmon1/temp1_input'
+                ]
+                
+                for path in thermal_paths:
+                    try:
+                        if os.path.exists(path):
+                            with open(path, 'r') as f:
+                                temp_str = f.read().strip()
+                                # Most Linux thermal zones report in millidegrees
+                                temp_celsius = float(temp_str) / 1000.0
+                                # Sanity check: reasonable CPU temperature range
+                                if 0 <= temp_celsius <= 100:
+                                    return temp_celsius
+                    except:
+                        continue
+                
+                # Try sensors command as fallback
+                try:
+                    result = subprocess.run(['sensors', '-u'], capture_output=True, text=True, timeout=2)
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if 'temp1_input' in line or 'Core 0' in line:
+                                parts = line.split(':')
+                                if len(parts) > 1:
+                                    temp_str = parts[1].strip()
+                                    temp_celsius = float(temp_str)
+                                    if 0 <= temp_celsius <= 100:
+                                        return temp_celsius
+                except:
+                    pass
+                    
+            elif system == 'windows':
+                # Windows temperature using WMI
+                try:
+                    import wmi
+                    c = wmi.WMI(namespace="root\\wmi")
+                    temperature_info = c.MSAcpi_ThermalZoneTemperature()
+                    if temperature_info:
+                        # Convert from tenths of Kelvin to Celsius
+                        temp_kelvin = temperature_info[0].CurrentTemperature / 10.0
+                        temp_celsius = temp_kelvin - 273.15
+                        return temp_celsius
+                except ImportError:
+                    # Try PowerShell as fallback
+                    try:
+                        ps_cmd = 'Get-WmiObject -Namespace "root/wmi" -Class MSAcpi_ThermalZoneTemperature | Select-Object -First 1 -ExpandProperty CurrentTemperature'
+                        result = subprocess.run(['powershell', '-Command', ps_cmd], 
+                                              capture_output=True, text=True, timeout=3)
+                        if result.returncode == 0:
+                            temp_raw = float(result.stdout.strip())
+                            temp_celsius = (temp_raw / 10.0) - 273.15
+                            return temp_celsius
+                    except:
+                        pass
+                except:
+                    pass
+            
+            # Fallback: return simulated temperature for unsupported systems
             import random
             return 35.0 + random.uniform(-5.0, 10.0)  # Simulate 30-45°C range
+            
     except Exception:
         return None  # Return None if temperature cannot be read

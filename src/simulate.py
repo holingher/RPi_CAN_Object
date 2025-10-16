@@ -1,9 +1,14 @@
 import math
 import random
+import time
 import numpy as np
 from typing import List
 from rx import radar_view, ego_motion_data, ObjectDrawData
 from defines import *
+
+# Timing control for simulation
+last_update_time = 0.0
+simulation_fps = 30  # Slower simulation update rate to control object movement speed
 
 
 def map_value(value: float, from_low: float, from_high: float, to_low: float, to_high: float) -> float:
@@ -14,7 +19,7 @@ def map_value(value: float, from_low: float, from_high: float, to_low: float, to
 latposition: np.ndarray = np.zeros(30, dtype=np.int16)
 longposition: np.ndarray = np.zeros(30, dtype=np.int16)
 object_class: np.ndarray = np.zeros(30, dtype=np.uint8)
-longvelo_speed: np.ndarray = np.full(30, 30.0, dtype=np.float32)
+longvelo_speed: np.ndarray = np.full(30, 15.0, dtype=np.float32)  # Reduced from 30.0 to 15.0 for slower movement
 
 def init_process_sim_radar() -> None:
     """Initialize radar simulation with optimized data structures"""
@@ -27,17 +32,50 @@ def init_process_sim_radar() -> None:
     latposition[:] = np.random.randint(50, 1001, size=30)
     longposition[:] = np.random.randint(50, 551, size=30)
     object_class[:] = np.random.randint(0, 4, size=30)
-    longvelo_speed[:] = np.random.uniform(0.0, 10.0, size=30)
+    longvelo_speed[:] = np.random.uniform(5.0, 30.0, size=30)  # Reduced speed range for more realistic movement
         
 def process_sim_radar(radar_dbc, can_bus_radar, can_bus_car) -> None:
     """Optimized radar simulation with vectorized operations"""
-    global latposition, longposition
+    global latposition, longposition, last_update_time
+    
+    current_time = time.time()
+    
+    # Only update positions at controlled rate
+    if current_time - last_update_time < (1.0 / simulation_fps):
+        # Just update the radar view without moving objects
+        for i in range(len(radar_view.object_list_for_draw)):
+            radar_view.object_list_for_draw[i] = ObjectDrawData(
+                object_id=i,
+                class_type=int(object_class[i]),
+                data_conf=random.randint(50, 100),
+                data_len=30.0,
+                data_width=20.0,
+                heading_angle=random.uniform(-180.0, 180.0),
+                lat_acc=random.uniform(-2.0, 2.0),
+                lat_pos=int(latposition[i]),
+                lat_velocity=random.uniform(-5.0, 5.0),
+                lgt_acc=random.uniform(-2.0, 2.0),
+                lgt_pos=int(longposition[i]),
+                lgt_velocity=float(longvelo_speed[i]),
+                model_info=random.randint(0, 10),
+                quality=random.randint(50, 100)
+            )
+        return
+
+    last_update_time = current_time
 
     # Update message counter (optimized)
     radar_view.msg_counter = 1  # Could be random.randint(1, 100) if needed
 
-    # Vectorized position updates
-    longposition += 1
+    # Vectorized position updates (now at controlled rate) - reduced movement speed
+    # Use integer arithmetic to avoid casting issues, move every other update
+    global update_counter
+    if not hasattr(process_sim_radar, 'update_counter'):
+        process_sim_radar.update_counter = 0
+    
+    process_sim_radar.update_counter += 1
+    if process_sim_radar.update_counter % 2 == 0:  # Move every other update for slower movement
+        longposition += 1
     
     # Handle boundary conditions with numpy operations
     mask_lat_high = latposition > surface_width
@@ -88,7 +126,7 @@ def process_sim_car(main_can_bus_car):
     
     return ego_motion_data
 
-base_speed = 30.0
+base_speed = 15.0  # Reduced from 30.0 for more realistic object speeds
 
 def process_sim_car_speed() -> None:
     """Optimized speed simulation using vectorized numpy operations"""
@@ -125,4 +163,4 @@ def process_sim_car_speed() -> None:
     longvelo_speed[:] = np.clip(base_speed + speed_variations, 0, 180)
     
     # For testing, set to constant value
-    longvelo_speed[:] = 10.0  # Simplified for now
+    longvelo_speed[:] = 8.0  # Reduced from 10.0 for slower, more realistic movement
